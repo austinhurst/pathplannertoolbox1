@@ -24,7 +24,7 @@ mapper::mapper(unsigned int seed)
 	maxCylHeight = 228.6; // 228.6 m = 750 ft.
 
 	// Pull in the competition boundaries
-	boundaries_in_file.open("./input_files/competition_boundaries.txt");
+	boundaries_in_file.open("./../input_files/competition_boundaries.txt");
 	if (!boundaries_in_file)
 		cerr << "Could not open the boundaries file." << std::endl;
 	vector<double> boundary_point;
@@ -122,7 +122,7 @@ void mapper::fprint_map()
 void mapper::fprint_boundaries()				// Prints the boundaries of the map
 {
 	ofstream boundaries_out_file;
-	boundaries_out_file.open("./graphing_files/output_boundaries.txt");
+	boundaries_out_file.open("./../graphing_files/output_boundaries.txt");
 	for (unsigned int i = 0; i < map.boundary_pts.size(); i++)
 		boundaries_out_file << map.boundary_pts[i][0] << "\t" << map.boundary_pts[i][1] << "\n";
 	boundaries_out_file.close();
@@ -130,7 +130,7 @@ void mapper::fprint_boundaries()				// Prints the boundaries of the map
 void mapper::fprintf_cylinders()				// Prints the cylinders that were developed
 {
 	ofstream cylinders_out_file;
-	cylinders_out_file.open("./graphing_files/output_cylinders.txt");
+	cylinders_out_file.open("./../graphing_files/output_cylinders.txt");
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
 		cylinders_out_file << map.cylinders[i][0] << "\t" << map.cylinders[i][1] << "\t" << map.cylinders[i][2] << "\t" << map.cylinders[i][3] << "\n";
 	cylinders_out_file.close();

@@ -2,5 +2,5 @@
 % Austin Hurst
 clear; clc; close all;
 
-plotBoundaries("sim_boundaries.txt");
-plotCylinders("sim_cylinders.txt");
+plotBoundaries("output_boundaries.txt");
+plotCylinders("output_cylinders.txt");

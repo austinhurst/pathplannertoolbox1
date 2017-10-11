@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include "./../include/mapper.h"
-#include "./../include/randgen.h"
+#include "./../include/randGen.h"
 
 using namespace std;
 
