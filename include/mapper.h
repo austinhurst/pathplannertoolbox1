@@ -28,26 +28,32 @@ public:
 
 private:
 	// Functions
-	bool flyZoneCheck(const NED_s NED);		// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+	bool flyZoneCheckMASTER(const NED_s, double radius);
 	bool flyZoneCheck(const cyl_s cyl);		// Special version of flyZoneCheck() that return false if the cylinders intersect
+	bool flyZoneCheck(const NED_s NED, double radius);// Special version of flyZoneCheck() that return false if the cylinders intersect
 	void fprint_boundaries();				// Prints the boundaries of the map
-	void fprintf_cylinders();				// Prints the cylinders that were developed
+	void fprint_cylinders();				// Prints the cylinders that were developed
+	void fprint_primaryWPS();				// Prints the cylinders that were developed
 
 	// Members
 	ifstream boundaries_in_file;			// The file that recieves boundaries
 	ifstream cylinders_in_file;				// The file that recieves where cylinders are.
 	randGen rg;								// This is the random generator
-	vector<vector<double> > lineMinMax;		// (N x 4) vector containing the (min x, max x, min y, max y) for each boundary line
-	vector<vector<double> > line_Mandb;		// (N x 2) vector that contains the slope and intercept of the line (m, b) from N = m*E + b ... not sure about E = constant lines yet.
+	vector<vector<double> > lineMinMax;		// (N x 4) vector containing the (min N, max N, min E, max E) for each boundary line
+	vector<vector<double> > line_Mandb;		// (N x 4) vector that contains the slope and intercept of the line (m, b, (-1/m), (m + 1/m)) from N = m*E + b ... not sure about E = constant lines yet.
 	unsigned int nBPts;						// Number of Boundary Points
 	unsigned int nCyli;						// Number of Cylinder Obstacles
 	double maxNorth;						// Calculated maximum North Coordinate within boundaries
 	double minNorth;						// Calculated minimum North Coordinate within boundaries
 	double maxEast;							// Calculated maximum East  Coordinate within boundaries
 	double minEast;							// Calculated minimum East  Coordinate within boundaries
+	double minFlyHeight;					// Floor of fly zone
+	double maxFlyHeight;					// Ceiling of fly zone
 	double minCylRadius;					// Minimum Cylinder Radius in meters
 	double maxCylRadius;					// Maximum Cylinder Radius in meters
 	double minCylHeight;					// Minimum Cylinder Height in meters
 	double maxCylHeight;					// Maximum Cylinder Height in meters
+	double waypoint_clearance;				// The radius away from any obstacle that the waypoints are placed
+	bool   is3D;							// If true, the board is 3D (cylinders have height) if false board is 2D (cylinders have height = to maxFlyHeight)
 };
 #endif

@@ -5,4 +5,3 @@ pathPlanner::pathPlanner()
 pathPlanner::~pathPlanner()
 {
 }
-

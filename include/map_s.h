@@ -26,6 +26,7 @@ struct map_s
 {
 	vector<NED_s> boundary_pts;		// Contains all boundary points, no repeats
 	vector<cyl_s> cylinders;		// Contains all cylinders
+	vector<NED_s> wps;				// Primary Waypoints
 };
 
 #endif

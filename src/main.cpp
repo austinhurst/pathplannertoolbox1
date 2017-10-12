@@ -22,7 +22,8 @@ using namespace std;
 int main()
 {
 	// Create the mapper object
-	mapper myWorld(12453);  // Inputs: seed for random generator
+	mapper myWorld(5202680025);  // Inputs: seed for random generator
+
 	myWorld.fprint_map();
 	//system("pause");
 	return 0;

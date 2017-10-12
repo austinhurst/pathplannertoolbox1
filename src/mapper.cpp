@@ -17,11 +17,17 @@ mapper::mapper(unsigned int seed)
 	randGen rg_in(seed);
 	rg = rg_in;
 
+	// Some settings for Generating the Map
+	waypoint_clearance = 15; // (m) This is the minimum clearance that each waypoint has with other obstacles... Just to make things reasonable.
+	is3D = false;			 // This make the board 3D, which pretty much just means the cylinders have a specific height and waypoints can be above them.
+
 	// Set up some competition constants
 	minCylRadius = 9.144; // 9.144 m = 30 ft.
 	maxCylRadius = 91.44; // 91.44 m = 300 ft.
 	minCylHeight = 9.144; // 9.144 m = 30 ft.
 	maxCylHeight = 228.6; // 228.6 m = 750 ft.
+	minFlyHeight = 30.48; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
+	maxFlyHeight = 228.6; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
 
 	// Pull in the competition boundaries
 	boundaries_in_file.open("./input_files/competition_boundaries.txt");
@@ -57,7 +63,7 @@ mapper::mapper(unsigned int seed)
 	vector<double> NminNmaxEminEmax;				// Yeah, this is a riduculous name...
 	vector<double> mb;								// Vector of slope and intercepts
 	nBPts = map.boundary_pts.size();				// Number of Boundary Points
-	double m, b;
+	double m, b, w, m_w;
 	for (unsigned int i = 0; i < nBPts; i++)		// Loop through all points
 	{
 		// Find the min and max of North and East coordinates on the line connecting two points.
@@ -70,8 +76,12 @@ mapper::mapper(unsigned int seed)
 		// Find the slope and intercept
 		m = (map.boundary_pts[(i + 1) % nBPts].N - map.boundary_pts[i].N) / (map.boundary_pts[(i + 1) % nBPts].E - map.boundary_pts[i].E);
 		b = -m*map.boundary_pts[i].E + map.boundary_pts[i].N;
+		w = (-1.0 / m);
+		m_w = m - w;
 		mb.push_back(m);
 		mb.push_back(b);
+		mb.push_back(w);
+		mb.push_back(m_w);
 		line_Mandb.push_back(mb);
 		mb.clear();
 	}
@@ -93,8 +103,29 @@ mapper::mapper(unsigned int seed)
 			cyl.E = rg.randLin()*(maxEast - minEast) + minEast;
 			cyl.R = rg.randLin()*(maxCylRadius - minCylRadius) + minCylRadius;
 		}
-		cyl.H = rg.randLin()*(maxCylHeight - minCylHeight) + minCylHeight;
+		if (is3D)
+			cyl.H = rg.randLin()*(maxCylHeight - minCylHeight) + minCylHeight;
+		else
+			cyl.H = maxFlyHeight;
 		map.cylinders.push_back(cyl);
+	}
+
+
+	int numWps = 3;
+	NED_s wp;
+	// Randomly generate some waypoints
+	for (int i = 0; i < numWps; i++)
+	{
+		wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
+		wp.E = rg.randLin()*(maxEast - minEast) + minEast;
+		wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+		while (flyZoneCheck(wp,waypoint_clearance) == false)
+		{
+			wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
+			wp.E = rg.randLin()*(maxEast - minEast) + minEast;
+			wp.D = rg.randLin()*(maxFlyHeight - minFlyHeight) + maxFlyHeight;
+		}
+		map.wps.push_back(wp);
 	}
 }
 mapper::~mapper()
@@ -103,7 +134,8 @@ mapper::~mapper()
 void mapper::fprint_map()
 {
 	fprint_boundaries();
-	fprintf_cylinders();
+	fprint_cylinders();
+	fprint_primaryWPS();
 }
 void mapper::fprint_boundaries()				// Prints the boundaries of the map
 {
@@ -113,7 +145,7 @@ void mapper::fprint_boundaries()				// Prints the boundaries of the map
 		boundaries_out_file << map.boundary_pts[i].N << "\t" << map.boundary_pts[i].E << "\n";
 	boundaries_out_file.close();
 }
-void mapper::fprintf_cylinders()				// Prints the cylinders that were developed
+void mapper::fprint_cylinders()				// Prints the cylinders that were developed
 {
 	ofstream cylinders_out_file;
 	cylinders_out_file.open("./graphing_files/output_cylinders.txt");
@@ -121,14 +153,37 @@ void mapper::fprintf_cylinders()				// Prints the cylinders that were developed
 		cylinders_out_file << map.cylinders[i].N << "\t" << map.cylinders[i].E << "\t" << map.cylinders[i].R << "\t" << map.cylinders[i].H << "\n";
 	cylinders_out_file.close();
 }
-bool mapper::flyZoneCheck(const NED_s NED)			// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+void mapper::fprint_primaryWPS()
+{
+	ofstream primary_wps_out_file;
+	primary_wps_out_file.open("./graphing_files/output_primary_wps.txt");
+	for (unsigned int i = 0; i < map.wps.size(); i++)
+		primary_wps_out_file << map.wps[i].N << "\t" << map.wps[i].E << "\t" << map.wps[i].D << "\n";
+	primary_wps_out_file.close();
+}
+bool mapper::flyZoneCheck(const cyl_s cyl)			// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+{
+	NED_s NED;
+	NED.N = cyl.N;
+	NED.E = cyl.E;
+	NED.D = 0;
+	double radius = cyl.R;
+	return  flyZoneCheckMASTER(NED, radius);
+}
+bool mapper::flyZoneCheck(const NED_s NED, const double radius)			// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+{
+	return flyZoneCheckMASTER(NED, radius);
+}
+
+bool mapper::flyZoneCheckMASTER(const NED_s NED, const double radius)
 {
 	// First, Check Within the Boundaries
 	bool withinBoundaries;
 	// Look at the Point in Polygon Algorithm
-	// Focus on rays North.
+	// Focus on rays South.
 	vector<bool> lineConcerns;
 	int crossed_lines = 0;							// This is a counter of the number of lines that the point is NORTH of.
+	double bt, Ei, Ni, de1, de2, shortest_distance;
 	for (unsigned int i = 0; i < nBPts; i++)
 	{
 		// Find out if the line is either North or South of the line
@@ -139,63 +194,36 @@ bool mapper::flyZoneCheck(const NED_s NED)			// Returns true if it is within bou
 			else if (NED.N == line_Mandb[i][0] * NED.E + line_Mandb[i][1])	// On the rare chance that the point is ON the line
 				return false;
 		}
-	}
-	withinBoundaries = crossed_lines % 2; // If it crosses an even number of boundaries it is NOT inside, if it crosses an odd number it IS inside
-
-	// Second, Check for Cylinders
-	// Check if the point falls into the volume of the cylinder
-	bool avoidsCylinders = true;
-	for (unsigned int i = 0; i < map.cylinders.size(); i++)
-		if (sqrt(pow(NED.N- map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R && -NED.D < map.cylinders[i].H)
-			return false;
-	return (withinBoundaries && avoidsCylinders);
-}
-bool mapper::flyZoneCheck(const cyl_s cyl)			// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
-{
-	// First, Check Within the Boundaries
-	bool withinBoundaries;
-	// Look at the Point in Polygon Algorithm
-	// Focus on rays North.
-	vector<bool> lineConcerns;
-	int crossed_lines = 0;							// This is a counter of the number of lines that the point is NORTH of.
-	for (unsigned int i = 0; i < nBPts; i++)
-	{
-		// Find out if the line is either North or South of the line
-		if (cyl.E >= lineMinMax[i][2] && cyl.E < lineMinMax[i][3]) // Only one equal sign solves both the above/ below a vertice problem and the vertical line problem
+		// Check to see if it is too close to the boundary lines
+		if (NED.E >= lineMinMax[i][2] - radius && NED.E < lineMinMax[i][3] + radius && NED.N >= lineMinMax[i][0] - radius && NED.N < lineMinMax[i][1] + radius)
 		{
-			if (cyl.N > line_Mandb[i][0] * cyl.E + line_Mandb[i][1])
-				crossed_lines++;
-			else if (cyl.N == line_Mandb[i][0] * cyl.E + line_Mandb[i][1])	// On the rare chance that the point is ON the line
+			bt = NED.N - line_Mandb[i][2] * NED.E;
+			Ei = (bt - line_Mandb[i][1]) / line_Mandb[i][3];
+			Ni = line_Mandb[i][2] * Ei + bt;
+			// 3 cases first point, second point, or on the line.
+			// If the intersection is on the line, dl is the shortest distance
+			// Otherwise it is one of the endpoints.
+			if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
+				shortest_distance = sqrt(pow(Ni - NED.N, 2) + pow(Ei - NED.E, 2));
+			else
+			{
+				de1 = sqrt(pow(map.boundary_pts[i].N - NED.N, 2) + pow(map.boundary_pts[i].E - NED.E, 2));
+				de2 = sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - NED.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - NED.E, 2));
+				shortest_distance = min(de1, de2);
+			}
+			if (shortest_distance < radius)
 				return false;
 		}
 	}
 	withinBoundaries = crossed_lines % 2; // If it crosses an even number of boundaries it is NOT inside, if it crosses an odd number it IS inside
+	if (withinBoundaries == false)
+		return false;
 
-
-	// Alright guys, this is kind of a hack:
-	// The next little bit figures out if the cylinder outer radius extends outside of a border.
-	// It isn't perfect... it actually seems like kind of a tough problem that doesn't warrant a ton of time
-	// The quick fix to this is to check only 4 (or as many as you want...) points on the cylinders outer surface, north, south, west, east
-	// The hard way would be to calculate the nearest point to the line. Which isn't that bad except for there 
-	// are difficulties next to sharp points in the boundaries.
-
-	NED_s ned_cyl_edge;
-	ned_cyl_edge.D = 0;
-	double theta;
-	int nCheckPoints = 4;	// Increasing this number increases the number of calculations...
-	for (int i = 0; i < nCheckPoints; i++)
-	{
-		theta = 2*3.141592653589793*i / nCheckPoints;
-		ned_cyl_edge.N = cyl.N + cyl.R*cos(theta);
-		ned_cyl_edge.E = cyl.E + cyl.R*sin(theta);
-		if (flyZoneCheck(ned_cyl_edge) == false)
-			return false;
-	}
 	// Second, Check for Cylinders
 	// Check if the point falls into the volume of the cylinder
 	bool avoidsCylinders = true;
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
-		if (sqrt(pow(cyl.N - map.cylinders[i].N, 2) + pow(cyl.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + cyl.R)
+		if (sqrt(pow(NED.N - map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + radius && -NED.D - radius < map.cylinders[i].H)
 			return false;
-	return (withinBoundaries && avoidsCylinders);
+	return true; // The coordinate is in the safe zone if it got to here!
 }
