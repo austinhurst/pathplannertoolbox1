@@ -4,19 +4,28 @@
  *	and the static obstacles (cylinders).
  *
  */
-
-//#pragma once
 #ifndef MAP_H
 #define MAP_H
-
 #include <vector>
 
 using namespace std;
-
+struct NED_s
+{
+	double N;						// North (m)
+	double E;						// East  (m)
+	double D;						// Down  (m), Remember up is negative!
+};
+struct cyl_s
+{
+	double N;						// North  (m)
+	double E;						// East   (m)
+	double R;						// Radius (m)
+	double H;						// Height (m)
+};
 struct map_s
 {
-	vector<vector<double> > boundary_pts;		// (N x 2) Contains the North and East position in meters. (No Repeats)
-	vector<vector<double> > cylinders;			// (N x 4) North, East, Radius, Height
+	vector<NED_s> boundary_pts;		// Contains all boundary points, no repeats
+	vector<cyl_s> cylinders;		// Contains all cylinders
 };
 
 #endif

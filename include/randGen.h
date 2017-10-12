@@ -1,4 +1,6 @@
-#pragma once
+#ifndef RANDGEN_H
+#define RANDGEN_H
+
 #include <random>
 
 using namespace std;
@@ -13,3 +15,4 @@ private:
 	unsigned int seed;				// Stores the seed - might be unnecessary.
 	mt19937 mersenneTwister;		// Here is the psuedo random generator object - The mersenne twister.
 };
+#endif

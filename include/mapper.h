@@ -2,12 +2,14 @@
 *	This is the header for the mapper class.
 *
 */
-#pragma once
+#ifndef MAPPER_H
+#define MAPPER_H
+
 #include <fstream>
 #include <vector>
 #include <algorithm>
 #include <cmath>
-#include <iostream>
+#include <iostream>	// This is also used for debugging (cerr)
 
 #include "./../include/map_s.h"
 #include "./../include/randGen.h"
@@ -26,7 +28,8 @@ public:
 
 private:
 	// Functions
-	bool flyZoneCheck(const double NED[]);	// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+	bool flyZoneCheck(const NED_s NED);		// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+	bool flyZoneCheck(const cyl_s cyl);		// Special version of flyZoneCheck() that return false if the cylinders intersect
 	void fprint_boundaries();				// Prints the boundaries of the map
 	void fprintf_cylinders();				// Prints the cylinders that were developed
 
@@ -47,3 +50,4 @@ private:
 	double minCylHeight;					// Minimum Cylinder Height in meters
 	double maxCylHeight;					// Maximum Cylinder Height in meters
 };
+#endif
