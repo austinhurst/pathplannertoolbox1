@@ -1,11 +1,13 @@
 /*	DESCRIPTION:
  *	This is a header that defines a struct that contains all of the static
  *	information about the competition environment. It contains the boundaries
- *	and the static obstacles (cylinders).
+ *	and the static obstacles (cylinders). Also, the NED_s is really helpful
+ *	and is used almost everywhere.
  *
  */
 #ifndef MAP_H
 #define MAP_H
+
 #include <vector>
 
 using namespace std;
@@ -25,7 +27,7 @@ struct cyl_s
 struct map_s
 {
 	vector<NED_s> boundary_pts;		// Contains all boundary points, no repeats
-	vector<cyl_s> cylinders;		// Contains all cylinders
+	vector<cyl_s> cylinders;		// Contains all cylinder obstacles
 	vector<NED_s> wps;				// Primary Waypoints
 };
 

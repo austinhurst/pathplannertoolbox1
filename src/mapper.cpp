@@ -87,31 +87,32 @@ mapper::mapper(unsigned int seed)
 	}
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ These lines are used to set up the flyZoneCheck() algorithm.
 
-	// Randomly Generate 10 Cylinders
-	// radius between 30 ft and 300 ft, height between 30 ft and 750 ft
-	// can be up to 10 cylinders
-	nCyli = 10;
-	cyl_s cyl;
+	// Randomly Generate nCyli Cylinders
+	// can be up to 10 cylinders in the competition
+	nCyli = 40;																// Number of Cylinders
+	cyl_s cyl;																// Cylinder object
 	for (unsigned int i = 0; i < nCyli; i++)
 	{
+		// Generate a position and radius
 		cyl.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 		cyl.E = rg.randLin()*(maxEast  - minEast ) + minEast ;
 		cyl.R = rg.randLin()*(maxCylRadius - minCylRadius) + minCylRadius;
+		// Check to see if it can fit there
 		while (flyZoneCheck(cyl) == false)
 		{
 			cyl.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			cyl.E = rg.randLin()*(maxEast - minEast) + minEast;
 			cyl.R = rg.randLin()*(maxCylRadius - minCylRadius) + minCylRadius;
 		}
+		// If we are doing 3 dimensions then generate random height, otherwise give it the maximum height
 		if (is3D)
 			cyl.H = rg.randLin()*(maxCylHeight - minCylHeight) + minCylHeight;
 		else
 			cyl.H = maxFlyHeight;
+		// Put the cylinder into the terrain map
 		map.cylinders.push_back(cyl);
 	}
-
-
-	int numWps = 3;
+	int numWps = 2;																// This is the number of Primary Waypoints
 	NED_s wp;
 	// Randomly generate some waypoints
 	for (int i = 0; i < numWps; i++)
@@ -119,23 +120,33 @@ mapper::mapper(unsigned int seed)
 		wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 		wp.E = rg.randLin()*(maxEast - minEast) + minEast;
 		wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+		// Check to see if the placement is good, keep generating a new one until it fits
 		while (flyZoneCheck(wp,waypoint_clearance) == false)
 		{
 			wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			wp.E = rg.randLin()*(maxEast - minEast) + minEast;
 			wp.D = rg.randLin()*(maxFlyHeight - minFlyHeight) + maxFlyHeight;
 		}
+		//Push the waypoint into the terrain map
 		map.wps.push_back(wp);
 	}
 }
 mapper::~mapper()
 {
+	// Free the vector memory... These were causing memory leakages
+	// Create a new empty vector and then swap it into the vector with data
+	for (unsigned int i = 0; i < lineMinMax.size(); i++)
+		vector<double>().swap(lineMinMax[i]);
+	vector<vector<double> >().swap(lineMinMax);
+	for (unsigned int i = 0; i < line_Mandb.size(); i++)
+		vector<double>().swap(line_Mandb[i]);
+	vector<vector<double> >().swap(line_Mandb);
 }
 void mapper::fprint_map()
 {
-	fprint_boundaries();
-	fprint_cylinders();
-	fprint_primaryWPS();
+	fprint_boundaries();						// Print all of the Boundary Points into a file (NO REPEATS)
+	fprint_cylinders();							// Print all of the Cylinders into a file
+	fprint_primaryWPS();						// Print the Primary Waypoints into a file
 }
 void mapper::fprint_boundaries()				// Prints the boundaries of the map
 {
@@ -145,7 +156,7 @@ void mapper::fprint_boundaries()				// Prints the boundaries of the map
 		boundaries_out_file << map.boundary_pts[i].N << "\t" << map.boundary_pts[i].E << "\n";
 	boundaries_out_file.close();
 }
-void mapper::fprint_cylinders()				// Prints the cylinders that were developed
+void mapper::fprint_cylinders()					// Prints the cylinders that were developed
 {
 	ofstream cylinders_out_file;
 	cylinders_out_file.open("./graphing_files/output_cylinders.txt");
@@ -153,7 +164,7 @@ void mapper::fprint_cylinders()				// Prints the cylinders that were developed
 		cylinders_out_file << map.cylinders[i].N << "\t" << map.cylinders[i].E << "\t" << map.cylinders[i].R << "\t" << map.cylinders[i].H << "\n";
 	cylinders_out_file.close();
 }
-void mapper::fprint_primaryWPS()
+void mapper::fprint_primaryWPS()				// Print the primary waypoints
 {
 	ofstream primary_wps_out_file;
 	primary_wps_out_file.open("./graphing_files/output_primary_wps.txt");
@@ -161,7 +172,7 @@ void mapper::fprint_primaryWPS()
 		primary_wps_out_file << map.wps[i].N << "\t" << map.wps[i].E << "\t" << map.wps[i].D << "\n";
 	primary_wps_out_file.close();
 }
-bool mapper::flyZoneCheck(const cyl_s cyl)			// Returns true if it is within boundaries and not on an obstacle, returns false otherwise
+bool mapper::flyZoneCheck(const cyl_s cyl)								// Returns true if the cylinder within boundaries and not on an obstacle, returns false otherwise
 {
 	NED_s NED;
 	NED.N = cyl.N;
@@ -175,7 +186,7 @@ bool mapper::flyZoneCheck(const NED_s NED, const double radius)			// Returns tru
 	return flyZoneCheckMASTER(NED, radius);
 }
 
-bool mapper::flyZoneCheckMASTER(const NED_s NED, const double radius)
+bool mapper::flyZoneCheckMASTER(const NED_s NED, const double radius)	// This function sees if the point NED, is at least radius away from any obstacle
 {
 	// First, Check Within the Boundaries
 	bool withinBoundaries;

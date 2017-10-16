@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
-#include <iostream>	// This is also used for debugging (cerr)
+#include <iostream>	// This is used for debugging (cerr)
 
 #include "./../include/map_s.h"
 #include "./../include/randGen.h"
@@ -28,9 +28,9 @@ public:
 
 private:
 	// Functions
-	bool flyZoneCheckMASTER(const NED_s, double radius);
-	bool flyZoneCheck(const cyl_s cyl);		// Special version of flyZoneCheck() that return false if the cylinders intersect
-	bool flyZoneCheck(const NED_s NED, double radius);// Special version of flyZoneCheck() that return false if the cylinders intersect
+	bool flyZoneCheckMASTER(const NED_s, double radius);	// This is the main flyZoneCheck for the mapper class.
+	bool flyZoneCheck(const cyl_s cyl);						// Return false if the cylinder intersect with other obstacles - calls flyZoneCheckMASTER()
+	bool flyZoneCheck(const NED_s NED, double radius);		// Return false if the point gets within radius of an obstacle - calls flyZoneCheckMASTER()
 	void fprint_boundaries();				// Prints the boundaries of the map
 	void fprint_cylinders();				// Prints the cylinders that were developed
 	void fprint_primaryWPS();				// Prints the cylinders that were developed
