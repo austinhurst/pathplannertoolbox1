@@ -1,0 +1,37 @@
+# This file inputs the base parameters for the path planning test bed.
+# These are default values, typically you will want to change a few values for each trial run.
+# You can change those values inside the main().
+# The order of variables does not matter.
+# A '#' is a comment and is ignorded.
+# Please keep this filee somewhat pretty
+
+
+# Simulation Settings
+ntrials = 1;			# Number of trials to run
+nMCs    = 1;			# Number of Monte Carlos for each trail
+solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
+numWps = 2;			# Number of primary waypoints
+seed	= 123456789;		# Seed the random generators for all of the simulation seeds
+
+
+# Map Settings
+boundaries_in_file = ./input_files/competition_boundaries.txt;
+is3D 	     = false;		# false = 2 dimensions, true = 3 dimensions
+minCylRadius = 9.144; 		# 9.144 m = 30 ft.
+maxCylRadius = 91.44; 		# 91.44 m = 300 ft.
+minCylHeight = 9.144; 		# 9.144 m = 30 ft.
+maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
+minFlyHeight = 30.48; 		# 30.48 m = 100 ft. (positive value) -> This still needs to add in the take off altitude
+maxFlyHeight = 228.6; 		# 228.6 m = 750 ft. (positive value) -> This still needs to add in the take off altitude
+waypoint_clearance = 15;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
+nCyli = 40;			# Number of Cylindrical Obstacles
+
+
+# Output Files
+file_extension = .txt;	# This is the file extension that will go on all of the files
+performance_file_name = ./graphing_files/output_trial_performance;
+boundaries_out_file = ./graphing_files/output_boundaries;
+cylinders_out_file = ./graphing_files/output_cylinders;
+primary_wps_out_file = ./graphing_files/output_primary_wps;
+tree_file = ./graphing_files/output_tree_;
+path_file = ./graphing_files/output_path;

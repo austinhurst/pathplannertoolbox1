@@ -1,21 +1,31 @@
 #ifndef SIMPLERRT_H
 #define SIMPLERRT_H
 
-
 #include <stack>
 
-#include "pathPlanner.h"
-#include "./../include/map_s.h"
-#include "./../include/randGen.h"
+#include "./../include/pathPlanner.h"
 
+// Input Options
+struct simpleRRT_input
+{
+	// input options
+	double D;
+	simpleRRT_input()			// Struct constructor, pust the default values here.
+	{
+		D = 50;
+	}
+};
+
+// CLass Definition
 class simpleRRT : public pathPlanner										// Inherit the base class, pathPlanner
 {
 public:
-	simpleRRT(map_s map_in, unsigned int seed);								// Constructor - input the terrain map and the random generator seed
+	simpleRRT(map_s map_in, unsigned int seed, fileReader *input_file, simpleRRT_input RRT_options);		// Constructor - input the terrain map and the random generator seed
 	~simpleRRT();															// Deconstructor - deletes the tree
 	void solve_static();													// Solves the static path
 	void fprint_static_solution();											// Prints out the tree, the final solution and the performance measures
 private:
+	simpleRRT_input alg_input;												// This contains all of the options for simpleRRT
 	struct node																// This is the node struct for each spot on the tree
 	{
 		NED_s NED;															// North, East Down of the node position

@@ -11,26 +11,29 @@
 #include "./../include/mapper.h"
 
 using namespace std;
-mapper::mapper(unsigned int seed)
+mapper::mapper(unsigned int seed, fileReader *input_file_in)
 {
+	// Keep the address of the input file class
+	input_file = input_file_in;
+
 	// Create the random generator
 	randGen rg_in(seed);
 	rg = rg_in;
 
 	// Some settings for Generating the Map
-	waypoint_clearance = 15; // (m) This is the minimum clearance that each waypoint has with other obstacles... Just to make things reasonable.
-	is3D = false;			 // This make the board 3D, which pretty much just means the cylinders have a specific height and waypoints can be above them.
+	waypoint_clearance = input_file->waypoint_clearance;// (m) This is the minimum clearance that each waypoint has with other obstacles... Just to make things reasonable.
+	is3D = input_file->is3D;							// This make the board 3D, which pretty much just means the cylinders have a specific height and waypoints can be above them.
 
 	// Set up some competition constants
-	minCylRadius = 9.144; // 9.144 m = 30 ft.
-	maxCylRadius = 91.44; // 91.44 m = 300 ft.
-	minCylHeight = 9.144; // 9.144 m = 30 ft.
-	maxCylHeight = 228.6; // 228.6 m = 750 ft.
-	minFlyHeight = 30.48; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
-	maxFlyHeight = 228.6; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
+	minCylRadius = input_file->minCylRadius; // 9.144 m = 30 ft.
+	maxCylRadius = input_file->maxCylRadius; // 91.44 m = 300 ft.
+	minCylHeight = input_file->minCylHeight; // 9.144 m = 30 ft.
+	maxCylHeight = input_file->maxCylHeight; // 228.6 m = 750 ft.
+	minFlyHeight = input_file->minFlyHeight; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
+	maxFlyHeight = input_file->maxFlyHeight; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
 
 	// Pull in the competition boundaries
-	boundaries_in_file.open("./input_files/competition_boundaries.txt");
+	boundaries_in_file.open(input_file->boundaries_in_file.c_str());
 	if (!boundaries_in_file)
 		cerr << "Could not open the boundaries file." << endl;
 	NED_s boundary_point;
@@ -89,7 +92,7 @@ mapper::mapper(unsigned int seed)
 
 	// Randomly Generate nCyli Cylinders
 	// can be up to 10 cylinders in the competition
-	nCyli = 40;																// Number of Cylinders
+	nCyli = input_file->nCyli;																// Number of Cylinders
 	cyl_s cyl;																// Cylinder object
 	for (unsigned int i = 0; i < nCyli; i++)
 	{
@@ -112,20 +115,26 @@ mapper::mapper(unsigned int seed)
 		// Put the cylinder into the terrain map
 		map.cylinders.push_back(cyl);
 	}
-	int numWps = 2;																// This is the number of Primary Waypoints
+	int numWps = input_file->numWps;												// This is the number of Primary Waypoints
 	NED_s wp;
 	// Randomly generate some waypoints
 	for (int i = 0; i < numWps; i++)
 	{
 		wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 		wp.E = rg.randLin()*(maxEast - minEast) + minEast;
-		wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+		if (is3D)
+			wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+		else
+			wp.D = 0;
 		// Check to see if the placement is good, keep generating a new one until it fits
 		while (flyZoneCheck(wp,waypoint_clearance) == false)
 		{
 			wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			wp.E = rg.randLin()*(maxEast - minEast) + minEast;
-			wp.D = rg.randLin()*(maxFlyHeight - minFlyHeight) + maxFlyHeight;
+			if (is3D)
+				wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+			else
+				wp.D = 0;
 		}
 		//Push the waypoint into the terrain map
 		map.wps.push_back(wp);
@@ -151,7 +160,7 @@ void mapper::fprint_map()
 void mapper::fprint_boundaries()				// Prints the boundaries of the map
 {
 	ofstream boundaries_out_file;
-	boundaries_out_file.open("./graphing_files/output_boundaries.txt");
+	boundaries_out_file.open(input_file->boundaries_out_file.c_str());
 	for (unsigned int i = 0; i < map.boundary_pts.size(); i++)
 		boundaries_out_file << map.boundary_pts[i].N << "\t" << map.boundary_pts[i].E << "\n";
 	boundaries_out_file.close();
@@ -159,7 +168,7 @@ void mapper::fprint_boundaries()				// Prints the boundaries of the map
 void mapper::fprint_cylinders()					// Prints the cylinders that were developed
 {
 	ofstream cylinders_out_file;
-	cylinders_out_file.open("./graphing_files/output_cylinders.txt");
+	cylinders_out_file.open(input_file->cylinders_out_file.c_str());
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
 		cylinders_out_file << map.cylinders[i].N << "\t" << map.cylinders[i].E << "\t" << map.cylinders[i].R << "\t" << map.cylinders[i].H << "\n";
 	cylinders_out_file.close();
@@ -167,7 +176,7 @@ void mapper::fprint_cylinders()					// Prints the cylinders that were developed
 void mapper::fprint_primaryWPS()				// Print the primary waypoints
 {
 	ofstream primary_wps_out_file;
-	primary_wps_out_file.open("./graphing_files/output_primary_wps.txt");
+	primary_wps_out_file.open(input_file->primary_wps_out_file);
 	for (unsigned int i = 0; i < map.wps.size(); i++)
 		primary_wps_out_file << map.wps[i].N << "\t" << map.wps[i].E << "\t" << map.wps[i].D << "\n";
 	primary_wps_out_file.close();

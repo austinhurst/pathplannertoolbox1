@@ -10,21 +10,23 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>	// This is used for debugging (cerr)
+#include <string>	// For the input file (file names)
 
 #include "./../include/map_s.h"
 #include "./../include/randGen.h"
+#include "./../include/fileReader.h"
 
 using namespace std;
 class mapper
 {
 public:
 	// Functions
-	mapper(unsigned int seed);				// default constructor (uses the competition boundaries) with random obstacles.
-	~mapper();								// virtual deconstructor
-	void fprint_map();						// Prints the details about the map to different files.
+	mapper(unsigned int seed, fileReader *input_file);		// default constructor (uses the competition boundaries) with random obstacles.
+	~mapper();												// virtual deconstructor
+	void fprint_map();										// Prints the details about the map to different files.
 
 	// Members
-	map_s map;								// The map struct. This is where all of the important information about the created map.
+	map_s map;												// The map struct. This is where all of the important information about the created map.
 
 private:
 	// Functions
@@ -36,6 +38,7 @@ private:
 	void fprint_primaryWPS();				// Prints the cylinders that were developed
 
 	// Members
+	fileReader *input_file;					// Input Parameters File Variables
 	ifstream boundaries_in_file;			// The file that recieves boundaries
 	ifstream cylinders_in_file;				// The file that recieves where cylinders are.
 	randGen rg;								// This is the random generator

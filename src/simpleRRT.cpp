@@ -1,8 +1,10 @@
 #include "./../include/simpleRRT.h"
 
-simpleRRT::simpleRRT(map_s map_in, unsigned int seed)		// Setup the object
+simpleRRT::simpleRRT(map_s map_in, unsigned int seed, fileReader *input_file_in, simpleRRT_input alg_input_in)		// Setup the object
 {
-	D = 50;													// Distance between each simpleRRT waypoint
+	input_file = input_file_in;
+	alg_input = alg_input;
+	D = alg_input.D;										// Distance between each simpleRRT waypoint
 	map = map_in;											// Get a copy of the terrain map
 	randGen rg_in(seed);									// Make a random generator object that is seeded
 	rg = rg_in;												// Copy that random generator into the class.
@@ -26,6 +28,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		node *root = new node;								// Starting position of the tree (and the waypoint beginning)
 		root->NED = map.wps[i];
 		root->parent = NULL;								// No parent
+		root->distance = 0.0;								// 0 distance.
 		root_ptrs.push_back(root);
 
 		double theta;
@@ -68,17 +71,21 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 			// add the new node to the tree
 			closest_node->children.push_back(vpos);
 			vpos->parent = closest_node;
+			vpos->distance = sqrt(pow(closest_node->NED.N - vpos->NED.N, 2) + pow(closest_node->NED.E - vpos->NED.E, 2) + pow(closest_node->NED.D - vpos->NED.D, 2));
 
 			// Check to see if it is possible to go from this newly added node to the next primary waypoint
 			if (flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
 			{
 
 				// We can go to the next waypoint!
+				// The following code wraps up the algorithm.
+				double pdistance = 0;								// This is a distance that cummulates into the total path distance (from one waypoint to another)
 				reached_next_wp = true;								// Set the flag
 				node *final_node = new node;
 				final_node->NED = map.wps[i + 1];
 				vpos->children.push_back(final_node);
 				final_node->parent = vpos;
+				final_node->distance = sqrt(pow(final_node->NED.N - vpos->NED.N, 2) + pow(final_node->NED.E - vpos->NED.E, 2) + pow(final_node->NED.D - vpos->NED.D, 2));
 
 				// populate all wps by working back up the tree
 				stack<NED_s> wpstack;
@@ -86,9 +93,11 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				while (current_node != root)
 				{
 					wpstack.push(current_node->NED);
+					pdistance += current_node->distance;
 					current_node = current_node->parent;
 				}
 				wpstack.push(root->NED);
+				path_distances.push_back(pdistance);
 
 				// Now put all of the waypoints into the all_wps vector
 				vector<NED_s> wps_to_PrimaryWP;
@@ -102,6 +111,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 			}
 		}
 	}
+	compute_performance();									// Do this after you finish the algorithm so that we can get the right performance values.
 }
 void simpleRRT::delete_tree()
 {
@@ -124,8 +134,8 @@ void simpleRRT::fprint_static_solution()						// Print the solution to the stati
 
 	// Maybe get smart about what to print depending on how many Monte Carlo runs there are.
 	// Print the trees (each waypoint gets its own tree file
-	string basefilename = "./graphing_files/output_tree_";
-	string extension = ".txt";
+	string basefilename = input_file->tree_file;
+	string extension = input_file->file_extension;
 	for (unsigned int i = 0; i < root_ptrs.size(); i++)
 	{
 		string filename = basefilename + to_string(i) + extension;
@@ -136,7 +146,7 @@ void simpleRRT::fprint_static_solution()						// Print the solution to the stati
 	}
 
 	// Print the final path
-	string pathfilename = "./graphing_files/output_path.txt";
+	string pathfilename = input_file->path_file;
 	ofstream path_file;
 	path_file.open(pathfilename.c_str());
 	for (unsigned int i = 0; i < all_wps.size(); i++)

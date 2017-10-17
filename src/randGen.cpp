@@ -23,3 +23,12 @@ double randGen::randLin()				// This public function returns a random number fro
 	uniform_real_distribution<double> UniDis(0.0, 1.0);
 	return UniDis(mersenneTwister);
 }
+vector<unsigned int> randGen::UINTv(unsigned int len)
+{
+	vector<unsigned int> uints;			// This function returns a vector of unsigned ints
+	for (unsigned int i = 0; i < len; i++)
+	{
+		uints.push_back(mersenneTwister());
+	}
+	return uints;
+}

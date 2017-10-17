@@ -17,6 +17,7 @@ pathPlanner::~pathPlanner()
 	for (unsigned int i = 0; i < line_Mandb.size(); i++)
 		vector<double>().swap(line_Mandb[i]);
 	vector<vector<double> >().swap(line_Mandb);
+	vector<double>().swap(path_distances);
 }
 void pathPlanner::ppSetup()
 {
@@ -98,7 +99,7 @@ void pathPlanner::setup_flyZoneCheck()				// This function sets up alll of the s
 bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) // Point start, point end, radius (clearance)
 {
 	// THIS FUNCTION IS REALLY IMPORTANT. IT DETERMINES IF A LINE CONNECTING ps AND pe INTERSECT ANY OBSTACLE OR GET WITHIN r OF ANY OBSTACLE.
-
+	// This function was created thinking in a 2 dimensional world... so there will need to be some more thoughts.
 	// Preliminary Calculations about the line connecting ps and pe
 	double pathMinMax[4];
 	double path_Mandb[4];
@@ -195,10 +196,10 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 	{
 		cylinderPoint.N = map.cylinders[i].N;
 		cylinderPoint.E = map.cylinders[i].E;
-		cylinderPoint.D = map.cylinders[i].H; // This will take some thought to do 3D...
-		clearThisCylinder = lineAndPoint(ps, pe,pathMinMax,path_Mandb, cylinderPoint,map.cylinders[i].R + r);
-		if (clearThisCylinder == false)
-			return false;
+cylinderPoint.D = map.cylinders[i].H; // This will take some thought to do 3D...
+clearThisCylinder = lineAndPoint(ps, pe, pathMinMax, path_Mandb, cylinderPoint, map.cylinders[i].R + r);
+if (clearThisCylinder == false)
+return false;
 	}
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check for Cylinder Obstacles ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -290,4 +291,13 @@ bool pathPlanner::lineAndPoint(NED_s ls, NED_s le, double MinMax[], double Mandb
 			return false;
 	}
 	return true;	// It is at least r away from the line if it got to here.
+}
+void pathPlanner::compute_performance()
+{
+	total_nWPS = 0;
+	for (unsigned int i = 0; i < all_wps.size(); i++)
+		total_nWPS += all_wps[i].size();
+	total_path_length = 0;
+	for (unsigned int i = 0; i < path_distances.size(); i++)
+		total_path_length += path_distances[i];
 }

@@ -2,6 +2,7 @@
 #define RANDGEN_H
 
 #include <random>
+#include <vector>
 
 using namespace std;
 class randGen
@@ -11,6 +12,7 @@ public:
 	randGen();						// Default contructor - NO SEED. Needed to allow randGen to be a member of a class
 	~randGen();						// Deconstructor
 	double randLin();				// This public function returns a random number from 0 to 1.
+	vector<unsigned int> UINTv(unsigned int len);	// Returns a vector of length len of random unsigned integers
 private:
 	unsigned int seed;				// Stores the seed - might be unnecessary.
 	mt19937 mersenneTwister;		// Here is the psuedo random generator object - The mersenne twister.
