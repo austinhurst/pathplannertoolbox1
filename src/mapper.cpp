@@ -241,7 +241,6 @@ bool mapper::flyZoneCheckMASTER(const NED_s NED, const double radius)	// This fu
 
 	// Second, Check for Cylinders
 	// Check if the point falls into the volume of the cylinder
-	bool avoidsCylinders = true;
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
 		if (sqrt(pow(NED.N - map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + radius && -NED.D - radius < map.cylinders[i].H)
 			return false;

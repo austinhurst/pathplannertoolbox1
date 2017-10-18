@@ -37,8 +37,8 @@ void pathPlanner::ppSetup()
 		{
 			maxNorth = (boundary_point.N > maxNorth) ? boundary_point.N : maxNorth; // if new N is greater than maxN, set maxN = new N
 			minNorth = (boundary_point.N < minNorth) ? boundary_point.N : minNorth;
-			maxEast = (boundary_point.E > maxEast) ? boundary_point.E : maxEast;
-			minEast = (boundary_point.E < minEast) ? boundary_point.E : minEast;
+			maxEast  = (boundary_point.E > maxEast) ? boundary_point.E : maxEast;
+			minEast  = (boundary_point.E < minEast) ? boundary_point.E : minEast;
 		}
 		else
 		{
@@ -255,7 +255,6 @@ bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point st
 
 	// Second, Check for Cylinders
 	// Check if the point falls into the volume of the cylinder
-	bool avoidsCylinders = true;
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
 		if (sqrt(pow(NED.N - map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + radius && -NED.D - radius < map.cylinders[i].H)
 			return false;
