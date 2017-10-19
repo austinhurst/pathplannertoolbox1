@@ -1,4 +1,4 @@
-function [ ] = plotBoundaries( filename )
+function [ ] = plotBoundaries( filename, f)
 % This file takes in the boundaries from a file (just the points in North,
 % Down) and plots the boundary on figure 1.
 
@@ -18,8 +18,6 @@ lims = [(maxE + minE)/2 - span/2, (maxE + minE)/2 + span/2; ...
     (maxN + minN)/2 - span/2, (maxN + minN)/2 + span/2];
 
 
-f = figure (1);
-hold on;
 % Set the figure sizes
 xlim(lims(1,:));
 ylim(lims(2,:));

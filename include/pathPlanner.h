@@ -46,5 +46,6 @@ protected:
 	double maxFlyHeight;								// Maximum Fly Height (positive value)
 	double clearance;									// The minimum clearance that the path will have away from any obstacles
 	bool is3D;											// If the simulation is in 3D or 2D
+	unsigned int iters_limit;							// This is the maximum number of iterations the solver will do before it will just move on
 };
 #endif

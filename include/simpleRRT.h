@@ -40,7 +40,7 @@ private:
 		double distance;													// distance to the point P
 		for (unsigned int i = 0; i < nin->children.size(); i++)				// For all of the children figure out their distances
 		{
-			distance = sqrt(pow(P.N - nin->children[i]->NED.N, 2) + pow(P.E - nin->children[i]->NED.E, 2));	// Calculate the distance to the node
+			distance = sqrt(pow(P.N - nin->children[i]->NED.N, 2) + pow(P.E - nin->children[i]->NED.E, 2) + pow(P.D - nin->children[i]->NED.D, 2));	// Calculate the distance to the node
 			if (distance < *minD)											// If we found a better distance, update it
 			{
 				minNode = nin->children[i];									// reset the minNode

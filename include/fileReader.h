@@ -21,6 +21,10 @@ public:
 	int numWps;
 	unsigned int seed;
 
+	// General Path Planning Algorithm Settings
+	double clearance;
+	unsigned int iters_limit;
+
 	// Map Settings
 	string boundaries_in_file;
 	bool is3D;

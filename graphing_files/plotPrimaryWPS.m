@@ -1,9 +1,7 @@
-function [] = plotPrimaryWPS(filename)
+function [] = plotPrimaryWPS(filename, fnum)
 % This file takes in the cylinders from a file (N, E, radius, height) and plots the boundary on figure 1.
     % load in file
     wps = load(filename);
-    figure (1)
-    hold on
     for i = 1:length(wps(:,1))
         scatter(wps(:,2),wps(:,1),200,'x','LineWidth',2);
     end

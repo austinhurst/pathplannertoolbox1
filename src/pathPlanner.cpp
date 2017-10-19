@@ -3,9 +3,7 @@
 using namespace std;
 pathPlanner::pathPlanner()
 {
-	clearance = 15;		  // Clearance for the path (m)
-	minFlyHeight = 30.48; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
-	maxFlyHeight = 228.6; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
+
 }
 pathPlanner::~pathPlanner()
 {
@@ -49,6 +47,10 @@ void pathPlanner::ppSetup()
 			setFirstValues = false;
 		}
 	}
+	clearance = input_file->clearance;		 // Clearance for the path (m)
+	minFlyHeight = input_file->minFlyHeight; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
+	maxFlyHeight = input_file->maxFlyHeight; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
+	iters_limit = input_file->iters_limit;	
 
 	// Also do the all of the calculations on the boundary lines.
 	setup_flyZoneCheck();
@@ -99,7 +101,7 @@ void pathPlanner::setup_flyZoneCheck()				// This function sets up alll of the s
 bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) // Point start, point end, radius (clearance)
 {
 	// THIS FUNCTION IS REALLY IMPORTANT. IT DETERMINES IF A LINE CONNECTING ps AND pe INTERSECT ANY OBSTACLE OR GET WITHIN r OF ANY OBSTACLE.
-	// This function was created thinking in a 2 dimensional world... so there will need to be some more thoughts.
+	// This function should be good for 3 dimensions.
 	// Preliminary Calculations about the line connecting ps and pe
 	double pathMinMax[4];
 	double path_Mandb[4];
@@ -185,6 +187,16 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 		return false;
 	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
+	if (is3D)
+	{
+		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
+			return false;
+		if (-pe.D < minFlyHeight + r || -pe.D > maxFlyHeight - r)
+			return false;
+	}
+	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
+
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check for Boundary Lines ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -196,7 +208,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 	{
 		cylinderPoint.N = map.cylinders[i].N;
 		cylinderPoint.E = map.cylinders[i].E;
-		cylinderPoint.D = -map.cylinders[i].H; // This will take some thought to do 3D...
+		cylinderPoint.D = -map.cylinders[i].H;
 		clearThisCylinder = lineAndPoint2d(ps, pe, pathMinMax, path_Mandb, cylinderPoint, map.cylinders[i].R + r);
 
 		// Check in 3D. Note that if the above is true, this check does not need to be performed.
@@ -209,48 +221,55 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 			double bigLength = sqrt(pow(map.cylinders[i].R + r, 2) - pow(Ni - cylinderPoint.N, 2) - pow(Ei - cylinderPoint.E, 2));
 			double d2cyl;
 			// Check to see if the path is above the cylinder height or into the cylinder
-			bool ends_in_cylinder2d = false;
-			if (sqrt(pow(ps.N - cylinderPoint.N, 2) + pow(ps.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
+			if (sqrt(pow(ps.N - cylinderPoint.N, 2) + pow(ps.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r && sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
 			{
-				ends_in_cylinder2d = true;
 				if (-ps.D < map.cylinders[i].H + r)
 					return false;
-				// else (check to see if the line that intersects the cylinder is in or out)
-				double smallLength = sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
-				if (Ni > pathMinMax[0] && Ni < pathMinMax[1] && Ei > pathMinMax[2] && Ei < pathMinMax[3])
-					d2cyl = bigLength + smallLength;
-				else
-					d2cyl = bigLength - smallLength;
-				if (-(dD*d2cyl + ps.D) < map.cylinders[i].H + r)
+				if (-ps.D < map.cylinders[i].H + r)
 					return false;
 			}
-			if (sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
+			else
 			{
-				ends_in_cylinder2d = true;
-				if (-pe.D < map.cylinders[i].H + r)
-					return false;
-				// else check to see if the line that intersects the cylinder is in or out
-				double smallLength = sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2));
-				if (Ni > pathMinMax[0] && Ni < pathMinMax[1] && Ei > pathMinMax[2] && Ei < pathMinMax[3])
-					d2cyl = bigLength + smallLength;
+				if (sqrt(pow(ps.N - cylinderPoint.N, 2) + pow(ps.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
+				{
+					if (-ps.D < map.cylinders[i].H + r)
+						return false;
+					// else (check to see if the line that intersects the cylinder is in or out)
+					double smallLength = sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
+					if (Ni > pathMinMax[0] && Ni < pathMinMax[1] && Ei > pathMinMax[2] && Ei < pathMinMax[3])
+						d2cyl = bigLength + smallLength;
+					else
+						d2cyl = bigLength - smallLength;
+					if (-(dD*d2cyl + ps.D) < map.cylinders[i].H + r)
+						return false;
+				}
+				else if (sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
+				{
+					if (-pe.D < map.cylinders[i].H + r)
+						return false;
+					// else check to see if the line that intersects the cylinder is in or out
+					double smallLength = sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2));
+					if (Ni > pathMinMax[0] && Ni < pathMinMax[1] && Ei > pathMinMax[2] && Ei < pathMinMax[3])
+						d2cyl = bigLength + smallLength;
+					else
+						d2cyl = bigLength - smallLength;
+					if (-(-dD*d2cyl + pe.D) < map.cylinders[i].H + r)
+						return false;
+				}
+				// Now check the two intersection points
 				else
-					d2cyl = bigLength - smallLength;
-				if (-(-dD*d2cyl + pe.D) < map.cylinders[i].H + r)
-					return false;
-			}
-			// Now check the two intersection points
-			if (ends_in_cylinder2d == false)
-			{
-				// Calculate the intersection point of the line and the perpendicular line connecting the point
-				double d_from_cyl2inter = sqrt(pow(cylinderPoint.N - Ni, 2) + pow(cylinderPoint.E - Ei, 2));
-				double daway_from_int = sqrt(pow(r + map.cylinders[i].R, 2) - pow(d_from_cyl2inter, 2));
+				{
+					// Calculate the intersection point of the line and the perpendicular line connecting the point
+					double d_from_cyl2inter = sqrt(pow(cylinderPoint.N - Ni, 2) + pow(cylinderPoint.E - Ei, 2));
+					double daway_from_int = sqrt(pow(r + map.cylinders[i].R, 2) - pow(d_from_cyl2inter, 2));
 
-				// Now test the height at int +- daway_from_int;
-				double Di = ps.D + dD*sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
-				if (-(Di + dD*daway_from_int) < map.cylinders[i].H + r)
-					return false;
-				if (-(Di - dD*daway_from_int) < map.cylinders[i].H + r)
-					return false;
+					// Now test the height at int +- daway_from_int;
+					double Di = ps.D + dD*sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
+					if (-(Di + dD*daway_from_int) < map.cylinders[i].H + r)
+						return false;
+					if (-(Di - dD*daway_from_int) < map.cylinders[i].H + r)
+						return false;
+				}
 			}
 			clearThisCylinder = true;
 		}
@@ -356,7 +375,3 @@ void pathPlanner::compute_performance()
 	for (unsigned int i = 0; i < path_distances.size(); i++)
 		total_path_length += path_distances[i];
 }
-
-
-// Lift = Cl*0.5*rho*V^2*S
-// To increase the the lift (but keep the Cl, same angle of attack) you need to increase the speed.

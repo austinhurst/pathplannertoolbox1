@@ -42,6 +42,10 @@ fileReader::fileReader(string input_file)
 				numWps = stoi(variable_value);
 			else if (variable_name == "seed")
 				seed = stoul(variable_value);
+			else if (variable_name == "clearance")
+				clearance = stod(variable_value);
+			else if (variable_name == "iters_limit")
+				iters_limit = stoul(variable_value);
 			else if (variable_name == "boundaries_in_file")
 				boundaries_in_file = variable_value;
 			else if (variable_name == "is3D")

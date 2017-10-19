@@ -1,9 +1,7 @@
-function [] = plotPath(filename)
-p = load(filename);
-
-figure(1)
-hold on
-plot(p(:,2),p(:,1),'LineWidth',3,'Color','k');
-hold off
-
+function [] = plotPath(data)
+persistent  pathHandle;
+if isempty(pathHandle)
+    pathHandle = plot(data(:,2),data(:,1),'LineWidth',3,'Color','k');
+else
+    set(pathHandle,'XData',data(:,2),'YData',data(:,1));
 end

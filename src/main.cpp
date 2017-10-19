@@ -60,7 +60,6 @@ int main()
 	{
 		// Change parameters here according to the trial number
 		int solver_type = input_file.solver_type;
-		rrt.D = 40;
 
 		// Record Containers
 		double avgTime(0);
@@ -117,6 +116,6 @@ int main()
 	}
 	performance_file.close();
 
-	//system("pause");
+	system("pause");
 	return 0;
 }
