@@ -23,7 +23,7 @@ public:
 	double total_path_length;							// Total path length
 	int total_nWPS;										// Total number of waypoints
 private:
-	bool lineAndPoint(NED_s ls, NED_s le, double MinMax[], double Mandb[], NED_s p, double r);	// Function called by the LINE flyZoneCheck(NED,NED,radius)
+	bool lineAndPoint2d(NED_s ls, NED_s le, double MinMax[], double Mandb[], NED_s p, double r);	// Function called by the LINE flyZoneCheck(NED,NED,radius)
 protected:
 	fileReader *input_file;								// address of the input file
 	vector<vector<NED_s> > all_wps;						// final path waypoints,
