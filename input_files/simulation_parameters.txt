@@ -10,11 +10,11 @@
 ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
-numWps = 10;			# Number of primary waypoints
+numWps  = 10;			# Number of primary waypoints
 seed	= 123456789;		# Seed the random generators for all of the simulation seeds
 
 # General Path Planning Algorithm Settings
-clearance = 10;			# Minimum distance the algorithm has to stay away from any obstacle
+clearance   = 10;		# Minimum distance the algorithm has to stay away from any obstacle
 iters_limit = 5000;		# This is a mximum iteration limit - so impossible maps don't hang the program
 
 # Map Settings
@@ -27,14 +27,14 @@ maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
 minFlyHeight = 30.48; 		# 30.48 m = 100 ft. (positive value) -> This still needs to add in the take off altitude
 maxFlyHeight = 228.6; 		# 228.6 m = 750 ft. (positive value) -> This still needs to add in the take off altitude
 waypoint_clearance = 15;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
-nCyli = 90;			# Number of Cylindrical Obstacles
+nCyli        = 90;		# Number of Cylindrical Obstacles
 
 
 # Output Files
-file_extension = .txt;	# This is the file extension that will go on all of the files
+file_extension        = .txt;	# This is the file extension that will go on all of the files
 performance_file_name = ./graphing_files/output_trial_performance;
-boundaries_out_file = ./graphing_files/output_boundaries;
-cylinders_out_file = ./graphing_files/output_cylinders;
-primary_wps_out_file = ./graphing_files/output_primary_wps;
+boundaries_out_file   = ./graphing_files/output_boundaries;
+cylinders_out_file    = ./graphing_files/output_cylinders;
+primary_wps_out_file  = ./graphing_files/output_primary_wps;
 tree_file = ./graphing_files/output_tree_;
 path_file = ./graphing_files/output_path;

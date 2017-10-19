@@ -3,7 +3,7 @@
 simpleRRT::simpleRRT(map_s map_in, unsigned int seed, fileReader *input_file_in, simpleRRT_input alg_input_in)		// Setup the object
 {
 	input_file = input_file_in;
-	alg_input = alg_input;
+	alg_input = alg_input_in;
 	D = alg_input.D;										// Distance between each simpleRRT waypoint
 	map = map_in;											// Get a copy of the terrain map
 	randGen rg_in(seed);									// Make a random generator object that is seeded

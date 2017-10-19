@@ -40,7 +40,7 @@ int main()
 
 	// Set up the Random seeds
 	unsigned int seed = input_file.seed;
-	// seed = 52613221;
+	//seed = 52613221;
 	// seed = std::chrono::system_clock::now().time_since_epoch().count();
 	randGen rg(seed);												// seed: max = 4,294,967,295 min = 0
 	vector<unsigned int> map_seeds = rg.UINTv(nMCs);
@@ -52,6 +52,7 @@ int main()
 
 	// Create the relevant input structs for the algorithms
 	simpleRRT_input rrt;
+	//double Ds[5] = { 10,20,30,40,50 };
 
 	// ***************************************************************************************
 	//******************************** SIMULATE **********************************************
@@ -60,6 +61,7 @@ int main()
 	{
 		// Change parameters here according to the trial number
 		int solver_type = input_file.solver_type;
+		//rrt.D = Ds[i];
 
 		// Record Containers
 		double avgTime(0);
