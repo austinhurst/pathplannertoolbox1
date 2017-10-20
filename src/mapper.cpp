@@ -33,6 +33,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 	maxFlyHeight = input_file->maxFlyHeight; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
 
 	// Pull in the competition boundaries
+	ifstream boundaries_in_file;			 // The file that recieves boundaries
 	boundaries_in_file.open(input_file->boundaries_in_file.c_str());
 	if (!boundaries_in_file)
 		cerr << "Could not open the boundaries file." << endl;
@@ -92,7 +93,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 
 	// Randomly Generate nCyli Cylinders
 	// can be up to 10 cylinders in the competition
-	nCyli = input_file->nCyli;																// Number of Cylinders
+	nCyli = input_file->nCyli;												// Number of Cylinders
 	cyl_s cyl;																// Cylinder object
 	for (unsigned int i = 0; i < nCyli; i++)
 	{

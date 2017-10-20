@@ -23,6 +23,11 @@ double randGen::randLin()				// This public function returns a random number fro
 	uniform_real_distribution<double> UniDis(0.0, 1.0);
 	return UniDis(mersenneTwister);
 }
+double randGen::randNor(double mu, double std)				// This public function returns a random number from the unit normal distribution
+{
+	normal_distribution<> gaussian(mu, std);
+	return 	gaussian(mersenneTwister);
+}
 vector<unsigned int> randGen::UINTv(unsigned int len)
 {
 	vector<unsigned int> uints;			// This function returns a vector of unsigned ints

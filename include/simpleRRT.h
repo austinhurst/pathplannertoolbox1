@@ -9,10 +9,18 @@
 struct simpleRRT_input
 {
 	// input options
-	double D;
+	double D;					// This is the distance between each node
+	bool uniform2P;				// If this is true the distance between each node is uniform between 0 and the distance to P
+	bool gaussianD;				// If this is true the distance between each node is gaussian mean = D, std = gaussianSTD
+	double gaussianSTD;			// The standard deviation if the gaussianD is set to true
+	bool connect_to_end;		// If true the RRT will check each node to see if it can connect to the end
 	simpleRRT_input()			// Struct constructor, pust the default values here.
 	{
 		D = 50;
+		uniform2P = false;
+		gaussianD = false;
+		gaussianSTD = 15;
+		connect_to_end = true;
 	}
 };
 

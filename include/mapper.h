@@ -39,8 +39,6 @@ private:
 
 	// Members
 	fileReader *input_file;					// Input Parameters File Variables
-	ifstream boundaries_in_file;			// The file that recieves boundaries
-	ifstream cylinders_in_file;				// The file that recieves where cylinders are.
 	randGen rg;								// This is the random generator
 	vector<vector<double> > lineMinMax;		// (N x 4) vector containing the (min N, max N, min E, max E) for each boundary line
 	vector<vector<double> > line_Mandb;		// (N x 4) vector that contains the slope and intercept of the line (m, b, (-1/m), (m + 1/m)) from N = m*E + b ... not sure about E = constant lines yet.

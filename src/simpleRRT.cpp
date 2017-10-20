@@ -17,6 +17,11 @@ simpleRRT::~simpleRRT()
 }
 void simpleRRT::solve_static()								// This function solves for a path in between the waypoinnts (2 Dimensional)
 {
+	// Different Algorithm Settings
+	// Can vary the D, the distance between each node			alg_input.D
+	// Can gaussian the D, distance between nodes are gaussian	alg_input.gaussianD, alg_input.gaussianSTD
+	// Can uniform to the point, connect to end or not.			alg_input.connect_to_end
+	
 	// Solve to each Primary Waypoint
 	bool reached_next_wp, found_feasible_link;
 	NED_s P;
@@ -34,13 +39,15 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		node *second2last = root;							// This will be set as the second to last waypoint
 		double theta;
 		double clearanceP = clearance;
-		if (flyZoneCheck(root->NED, map.wps[i + 1], clearance))
+		if (alg_input.connect_to_end && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
+			reached_next_wp = true;								// Set the flag
+		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
 			reached_next_wp = true;								// Set the flag
 		// Keep adding to the tree until you have found a solution
-		unsigned int added_nodes = 0;						// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
+		unsigned int added_nodes = 0;							// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
 		while (reached_next_wp == false)
 		{
-			node *vpos = new node;							// vpos is the next node to add to the tree
+			node *vpos = new node;								// vpos is the next node to add to the tree
 			found_feasible_link = false;
 
 			// Once you found a node to add to the tree that doesn't intersect with an obstacle, add it to the tree
@@ -71,6 +78,10 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				theta = atan2(P.N - closest_node->NED.N, P.E - closest_node->NED.E);
 
 				// Go a distance D along the line from closest node to P to find the next node position vpos
+				if (alg_input.uniform2P)
+					D = rg.randLin()*distance;
+				else if (alg_input.gaussianD)
+					D = rg.randNor(distance,alg_input.gaussianSTD);
 				vpos->NED.N = (closest_node->NED.N) + sin(theta)*D;
 				vpos->NED.E = (closest_node->NED.E) + cos(theta)*D;
 				vpos->NED.D = 0; // Simple... 2D
@@ -98,11 +109,16 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				second2last = vpos;
 			}
 			// Check to see if it is possible to go from this newly added node to the next primary waypoint
-			if (flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+			if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
 			{
 				reached_next_wp = true;								// Set the flag
 				second2last = vpos;
-			}
+			}								// Set the flag
+			if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+			{
+				reached_next_wp = true;								// Set the flag
+				second2last = vpos;
+			}								// Set the flag
 		}
 		// We can go to the next waypoint!
 		// The following code wraps up the algorithm.
