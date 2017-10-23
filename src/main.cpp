@@ -10,7 +10,7 @@
  *		10-10-17	:	Author:	Austin Hurst
  *						Notes :	Initial Commit, Basic Structure
  *		10-17-17	:	Author: Austin Hurst
- *						Notes : First path planning algorithm, RRT
+ *						Notes : Structured to be modular with other algorithms
  *
  */
 #include <iostream>
@@ -51,16 +51,16 @@ int main()
 	performance_file.open(input_file.performance_file_name.c_str());
 
 	// Create the relevant input structs for the algorithms
+	int solver_type = input_file.solver_type;
 	simpleRRT_input rrt;
 	//double Ds[5] = { 10,20,30,40,50 };
-	rrt.uniform2P = true;
+
 	// ***************************************************************************************
 	//******************************** SIMULATE **********************************************
 	cout << "**************************************" << endl;
 	for (unsigned int i = 0; i < ntrials; i++)
 	{
 		// Change parameters here according to the trial number
-		int solver_type = input_file.solver_type;
 		//rrt.D = Ds[i];
 
 		// Record Containers

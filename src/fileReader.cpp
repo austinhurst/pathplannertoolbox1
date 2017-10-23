@@ -48,6 +48,12 @@ fileReader::fileReader(string input_file)
 				iters_limit = stoul(variable_value);
 			else if (variable_name == "boundaries_in_file")
 				boundaries_in_file = variable_value;
+			else if (variable_name == "latitude0")
+				latitude0 = variable_value;
+			else if (variable_name == "longitude0")
+				longitude0 = variable_value;
+			else if (variable_name == "height0")
+				height0 = stod(variable_value);
 			else if (variable_name == "is3D")
 				is3D = (("true" == variable_value) ? true : false);
 			else if (variable_name == "minCylRadius")

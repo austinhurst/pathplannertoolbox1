@@ -27,6 +27,9 @@ public:
 
 	// Map Settings
 	string boundaries_in_file;
+	string latitude0;
+	string longitude0;
+	double height0;
 	bool is3D;
 	double minCylRadius;
 	double maxCylRadius;

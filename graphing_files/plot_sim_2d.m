@@ -17,7 +17,9 @@ function [] = plot_sim_2d( )
         plotTree("output_tree_" + num2str(i-1) + ".txt", false);
         plotPath(allWPS(wp_index:j,:));
         wp_index = j +1;
-        pause;
+        if length(pWPS(:,1)) > 2
+            pause;
+        end
     end
     if length(pWPS(:,1)) > 2
         plotTree("output_tree_" + num2str(0) + ".txt", true);

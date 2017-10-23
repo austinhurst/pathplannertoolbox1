@@ -1,12 +1,12 @@
 /*	DESCRIPTION:
- *	This is the cpp for the mapper class.
- *	The mapper is seeded with an unsigned int. Every time the mapper is seeded with the
- *	same seed it will produce the same exact map! (This may not be true if using different
- *	compilers etc).
- *	The functions (will) include loading in boundaries, randomly generating 
- *	static obstacles (cylinders), generating .world files, and possibly
- *	generating moving obstacles.
- */
+*	This is the cpp for the mapper class.
+*	The mapper is seeded with an unsigned int. Every time the mapper is seeded with the
+*	same seed it will produce the same exact map! (This may not be true if using different
+*	compilers etc).
+*	The functions includes loading in boundaries, randomly generating
+*	static obstacles (cylinders), (eventually) generating .world files, and possibly
+*	generating moving obstacles.
+*/
 
 #include "./../include/mapper.h"
 
@@ -24,37 +24,64 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 	waypoint_clearance = input_file->waypoint_clearance;// (m) This is the minimum clearance that each waypoint has with other obstacles... Just to make things reasonable.
 	is3D = input_file->is3D;							// This make the board 3D, which pretty much just means the cylinders have a specific height and waypoints can be above them.
 
-	// Set up some competition constants
+														// Set up some competition constants
 	minCylRadius = input_file->minCylRadius; // 9.144 m = 30 ft.
 	maxCylRadius = input_file->maxCylRadius; // 91.44 m = 300 ft.
 	minCylHeight = input_file->minCylHeight; // 9.144 m = 30 ft.
 	maxCylHeight = input_file->maxCylHeight; // 228.6 m = 750 ft.
-	minFlyHeight = input_file->minFlyHeight; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
-	maxFlyHeight = input_file->maxFlyHeight; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
+	minFlyHeight = input_file->minFlyHeight; // 23.7744 m = 78 ft.
+	maxFlyHeight = input_file->maxFlyHeight; // 221.8944 m = 728 ft.
 
 	// Pull in the competition boundaries
-	ifstream boundaries_in_file;			 // The file that recieves boundaries
+	// Get the NED coordinate frame set up
+
+	// Get the Reference Angles
+	double piD180 = 3.1415926535897932 / 180.0;
+	double a = 6378137.0;						// length of Earth’s semi-major axis in meters
+	double be = 6356752.3142;					// length of Earth’s semi-minor axis in meters
+	double e2 = 1. - pow((be / a), 2);			// first numerical eccentricity
+
+	rPhi = (stod(input_file->latitude0.substr(1, 2)) + stod(input_file->latitude0.substr(4, 2)) / 60.0 + stod(input_file->latitude0.substr(7, 5)) / 3600.0)*piD180;
+	rLam = (stod(input_file->longitude0.substr(2, 3)) + stod(input_file->longitude0.substr(5, 2)) / 60.0 + stod(input_file->longitude0.substr(8, 5)) / 3600.0)*piD180;
+	rH = input_file->height0;
+
+	// Convert the angles into Earth Centered Earth Fixed Reference Frame
+	double chi = sqrt(1 - e2*sin(rPhi)*sin(rPhi));
+	xr = (a / chi + rH)* cos(rPhi)*cos(rLam);
+	yr = (a / chi + rH)* cos(rPhi)*sin(rLam);
+	zr = (a*(1 - e2) / chi + rH)*sin(rPhi);
+
+
+	ifstream boundaries_in_file;				// The file that recieves boundaries
 	boundaries_in_file.open(input_file->boundaries_in_file.c_str());
 	if (!boundaries_in_file)
 		cerr << "Could not open the boundaries file." << endl;
 	NED_s boundary_point;
 	bool setFirstValues = true;
+	string LATITUDE;	// North
+	string LONGITUDE;	// West
+	double phi, lambda;
 	while (boundaries_in_file.eof() == false)
 	{
-		boundaries_in_file >> boundary_point.N >> boundary_point.E;
+		boundaries_in_file >> LATITUDE >> LONGITUDE;
+		phi = stod(LATITUDE.substr(1, 2)) + stod(LATITUDE.substr(4, 2)) / 60.0 + stod(LATITUDE.substr(7, 5)) / 3600.0;
+		lambda = stod(LONGITUDE.substr(2, 3)) + stod(LONGITUDE.substr(5, 2)) / 60.0 + stod(LONGITUDE.substr(8, 5)) / 3600.0;
+
+		boundary_point = GPS2NED(phi, lambda, rH);
+
 		if (setFirstValues == false)
 		{
 			maxNorth = (boundary_point.N > maxNorth) ? boundary_point.N : maxNorth; // if new N is greater than maxN, set maxN = new N
 			minNorth = (boundary_point.N < minNorth) ? boundary_point.N : minNorth;
-			maxEast  = (boundary_point.E > maxEast ) ? boundary_point.E : maxEast ;
-			minEast  = (boundary_point.E < minEast ) ? boundary_point.E : minEast ;
+			maxEast = (boundary_point.E > maxEast) ? boundary_point.E : maxEast;
+			minEast = (boundary_point.E < minEast) ? boundary_point.E : minEast;
 		}
 		else
 		{
 			maxNorth = boundary_point.N;
 			minNorth = boundary_point.N;
-			maxEast  = boundary_point.E;
-			minEast  = boundary_point.E;
+			maxEast = boundary_point.E;
+			minEast = boundary_point.E;
 			setFirstValues = false;
 		}
 
@@ -99,7 +126,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 	{
 		// Generate a position and radius
 		cyl.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
-		cyl.E = rg.randLin()*(maxEast  - minEast ) + minEast ;
+		cyl.E = rg.randLin()*(maxEast - minEast) + minEast;
 		cyl.R = rg.randLin()*(maxCylRadius - minCylRadius) + minCylRadius;
 		// Check to see if it can fit there
 		while (flyZoneCheck(cyl) == false)
@@ -128,7 +155,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 		else
 			wp.D = 0;
 		// Check to see if the placement is good, keep generating a new one until it fits
-		while (flyZoneCheck(wp,waypoint_clearance) == false)
+		while (flyZoneCheck(wp, waypoint_clearance) == false)
 		{
 			wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			wp.E = rg.randLin()*(maxEast - minEast) + minEast;
@@ -246,4 +273,54 @@ bool mapper::flyZoneCheckMASTER(const NED_s NED, const double radius)	// This fu
 		if (sqrt(pow(NED.N - map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + radius && -NED.D - radius < map.cylinders[i].H)
 			return false;
 	return true; // The coordinate is in the safe zone if it got to here!
+}
+NED_s mapper::GPS2NED_(double phi, double lambda, double h) // Supposedly this one is about 3 times faster... It may be a little less acurate, it uses a taylor series approximation.
+{
+	// Constants
+	double a = 6378137.0;				// length of Earth’s semi-major axis in meters
+	double b = 6356752.3142;			// length of Earth’s semi-minor axis in meters
+	double e2 = 1. - pow((b / a), 2);	// first numerical eccentricity
+	double chi = sqrt(1 - e2*sin(rPhi)*sin(rPhi));
+
+	// Delta Angles
+	double dphi = rPhi - phi*3.1415926535897932 / 180.0;
+	double dlam = rLam - lambda*3.1415926535897932 / 180.0;
+	double dh = rH - h;
+
+	// Taylor Series Approximation and Rotation
+	NED_s ned;
+	ned.N = -(a*(1. - e2) / pow(chi, 3) + h)*dphi - 1.5*a*cos(rPhi)*sin(rPhi)*e2*pow(dphi, 2) - dh*dphi*pow(sin(rPhi), 2) - .5*sin(rPhi)*cos(rPhi)*(a / chi + rH)*pow(dlam, 2);
+	ned.E = (a / chi + rH)*cos(rPhi)*dlam - (a*(1 - e2) / pow(chi, 3) + rH)*sin(rPhi)*dphi*dlam + cos(rPhi)*dlam*dh;
+	ned.D = -dh + .5*a*(1. - 1.5*e2*pow(cos(rPhi), 2) + 0.5*e2 + h / a)*pow(dphi, 2) + 0.5*(a*cos(rPhi)*cos(rPhi) / chi - rH*cos(rPhi)*cos(rPhi))*pow(dlam, 2);
+	return ned;
+}
+NED_s mapper::GPS2NED(double phi, double lambda, double h)
+{
+	// CONSTANTS
+	double piD180 = 3.1415926535897932 / 180.0;
+	double a = 6378137.0;						// length of Earth’s semi-major axis in meters
+	double b = 6356752.3142;					// length of Earth’s semi-minor axis in meters
+	double e2 = 1. - pow((b / a), 2);			// first numerical eccentricity
+	double chi = sqrt(1 - e2*sin(rPhi)*sin(rPhi));
+
+	// Convert the incoming angles to radians
+	phi = phi*piD180;
+	lambda = lambda*piD180;
+
+	// Convert the angles into Earth Centered Earth Fixed Reference Frame
+	double x = (a / chi + h)* cos(phi)*cos(lambda);
+	double y = (a / chi + h)* cos(phi)*sin(lambda);
+	double z = (a*(1 - e2) / chi + h)*sin(phi);
+
+	// Find the difference between the point x, y, z to the reference point in ECEF 
+	double dx = x - xr;
+	double dy = y - yr;
+	double dz = z - zr;
+
+	// Rotate the point in ECEF to the Local NED
+	NED_s ned;
+	ned.N = (-sin(rPhi)*cos(rLam)*dx) + (-sin(rPhi)*sin(rLam)*dy) + cos(rPhi)*dz;
+	ned.E = (sin(rLam)*dx) - (cos(rLam)*dy);
+	ned.D = (-cos(rPhi)*cos(rLam)*dx) + (-cos(rPhi)*sin(rLam)*dy) + (-sin(rPhi)*dz);
+	return ned;
 }

@@ -1,0 +1,4 @@
+/graphing_files/*.txt
+*.vcxproj
+*.vcxproj.filters
+/Debug

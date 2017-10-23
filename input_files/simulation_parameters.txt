@@ -10,22 +10,25 @@
 ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
-numWps  = 10;			# Number of primary waypoints
+numWps  = 2;			# Number of primary waypoints
 seed	= 123456789;		# Seed the random generators for all of the simulation seeds
 
 # General Path Planning Algorithm Settings
 clearance   = 10;		# Minimum distance the algorithm has to stay away from any obstacle
-iters_limit = 5000;		# This is a mximum iteration limit - so impossible maps don't hang the program
+iters_limit = 5000;		# This is a maximum iteration limit - so impossible maps don't hang the program
 
 # Map Settings
 boundaries_in_file = ./input_files/competition_boundaries.txt;
+latitude0    = N38-09-01.50;	# 0 point for the latitude. Please follow format Nxx-xx-xx.xx
+longitude0   = W076-25-29.70;	# 0 point for the longitude. Please follow format Wxxx-xx-xx.xx
+height0	     = 6.7056;		# 0 height at the runway, 22 feet.
 is3D 	     = false;		# false = 2 dimensions, true = 3 dimensions
 minCylRadius = 9.144; 		# 9.144 m = 30 ft.
 maxCylRadius = 91.44; 		# 91.44 m = 300 ft.
 minCylHeight = 9.144; 		# 9.144 m = 30 ft.
 maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
-minFlyHeight = 30.48; 		# 30.48 m = 100 ft. (positive value) -> This still needs to add in the take off altitude
-maxFlyHeight = 228.6; 		# 228.6 m = 750 ft. (positive value) -> This still needs to add in the take off altitude
+minFlyHeight = 30.48; 		# 23.7744 m = 100 - 22 ft. (positive value)
+maxFlyHeight = 228.6; 		# 221.8944 m = 750 - 22 ft. (positive value)
 waypoint_clearance = 15;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
 nCyli        = 90;		# Number of Cylindrical Obstacles
 

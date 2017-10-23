@@ -33,9 +33,11 @@ private:
 	bool flyZoneCheckMASTER(const NED_s, double radius);	// This is the main flyZoneCheck for the mapper class.
 	bool flyZoneCheck(const cyl_s cyl);						// Return false if the cylinder intersect with other obstacles - calls flyZoneCheckMASTER()
 	bool flyZoneCheck(const NED_s NED, double radius);		// Return false if the point gets within radius of an obstacle - calls flyZoneCheckMASTER()
-	void fprint_boundaries();				// Prints the boundaries of the map
-	void fprint_cylinders();				// Prints the cylinders that were developed
-	void fprint_primaryWPS();				// Prints the cylinders that were developed
+	void fprint_boundaries();								// Prints the boundaries of the map
+	void fprint_cylinders();								// Prints the cylinders that were developed
+	void fprint_primaryWPS();								// Prints the cylinders that were developed
+	NED_s GPS2NED_(double phi, double lambda, double h);	// Converts GPS angles to local NED coordinates. For the cometition these two functions differ by about 1 cm and 10 cm at the most.
+	NED_s GPS2NED(double phi, double lambda, double h);		// Converts GPS angles to local NED coordinates, more accurate but slower.
 
 	// Members
 	fileReader *input_file;					// Input Parameters File Variables
@@ -56,5 +58,11 @@ private:
 	double maxCylHeight;					// Maximum Cylinder Height in meters
 	double waypoint_clearance;				// The radius away from any obstacle that the waypoints are placed
 	bool   is3D;							// If true, the board is 3D (cylinders have height) if false board is 2D (cylinders have height = to maxFlyHeight)
+	double rPhi;							// Reference Phi, Latitude reference angle (radians)
+	double rLam;							// Reference Lambd, Longitude reference angle (radians)
+	double rH;								// Reference Height from mean sea level, meters
+	double xr;								// Reference point in ECEF
+	double yr;								// Reference point in ECEF
+	double zr;								// Reference point in ECEF
 };
 #endif

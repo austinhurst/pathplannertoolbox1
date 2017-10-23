@@ -1,0 +1,2 @@
+# Ignore the .o files but include this directory
+*.o
