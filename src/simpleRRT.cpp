@@ -29,6 +29,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	// For every Primary Waypoint develop a tree and a find a path
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
 	{
+		// Set up some initial things for this waypoint to waypoint tree
 		reached_next_wp = false;							// Flag to see if you have reached the next waypoint
 		node *root = new node;								// Starting position of the tree (and the waypoint beginning)
 		root->NED = map.wps[i];
@@ -39,10 +40,13 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		node *second2last = root;							// This will be set as the second to last waypoint
 		double theta;
 		double clearanceP = clearance;
+
+		// Check to see if it is possible to go stright to the next path
 		if (alg_input.connect_to_end && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
 			reached_next_wp = true;								// Set the flag
 		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
 			reached_next_wp = true;								// Set the flag
+
 		// Keep adding to the tree until you have found a solution
 		unsigned int added_nodes = 0;							// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
 		while (reached_next_wp == false)
@@ -66,9 +70,8 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 					p_count++;
 					if (p_count >= iters_limit / 2)
 					{
-						cout << "DECREASING THE CLEARANCE LEVEL" << endl;
 						clearanceP = clearanceP / 2.0;
-						cout << "CLEARANCE:\t" << clearanceP << endl;
+						p_count = p_count*7.0 / 8.0;
 					}
 				}
 				double distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
@@ -87,8 +90,11 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				vpos->NED.D = 0; // Simple... 2D
 				
 				// If this path is good move on.
+				// Check to see if the straight line path is good.
 				if (flyZoneCheck(closest_node->NED, vpos->NED, clearance))
 					found_feasible_link = true;
+				// Check to see if for any 2 paths formed together there is a good fillet.
+					
 			}
 
 			// add the new node to the tree
@@ -150,8 +156,49 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		}
 		all_wps.push_back(wps_to_PrimaryWP);
 		wps_to_PrimaryWP.clear();
+
+		// Smooth Out the path (Algorithm 11 in the UAV book)
+		vector<NED_s> path_smoothed;
+		double smooth_distances = 0;
+		unsigned int i_node = 0;
+		unsigned int j_node = 1;
+		path_smoothed.push_back(all_wps[i][0]);
+		while (j_node < all_wps[i].size())
+		{
+			if (all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+			{
+				path_smoothed.push_back(all_wps[i][j_node]);
+				i_node++;
+				smooth_distances += sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node -1].N,2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E,2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D,2));
+			}
+			j_node++;
+		}
+		path_distances[i] = smooth_distances;
+		all_wps[i].swap(path_smoothed);
 	}
+	// Add the final waypoint to the waypoint list.
+	all_wps[map.wps.size() - 2].push_back(map.wps[map.wps.size() - 1]);
 	compute_performance();									// Do this after you finish the algorithm so that we can get the right performance values.
+	
+
+
+	//*********************************************************************************************
+	// We still need to do some improvements.
+
+	// (all ready complete) get the algorithm to connect point to point
+	// Second Task. Kinematically possible route.
+	//		cleaning up unneseccary waypoints (mostly done)
+	//		which type of path? Straight, fillet, dubins
+	//		possibly add some waypoints around the primary waypoints to help "guide" the algorithms into and out of waypoints
+	//		make sure it won't collide anywhere
+	// Third task get it to work in 3 dimensions
+	//		Climb and descend rates
+	//		look over obstacles in efficient way
+	// Fourth Task
+	//		Get all of the above to work with moving targets (maybe not until december...)
+	// Refinement stage
+	//		Possibly get the algorithm to compute multiple paths to get the optimal solution.
+	//**********************************************************************************************
 }
 void simpleRRT::delete_tree()
 {

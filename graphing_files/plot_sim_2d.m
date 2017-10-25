@@ -7,7 +7,7 @@ function [] = plot_sim_2d( )
     plotBoundaries("output_boundaries.txt",f);
     plotCylinders("output_cylinders.txt");
     plotPrimaryWPS("output_primary_wps.txt");
-    wp_index = 1;
+    wp_index = 2;
     for i = 1:length(pWPS(:,1))-1
         for j = wp_index:length(allWPS(:,1))
             if allWPS(j,:) == pWPS(i+1,:)
@@ -15,7 +15,7 @@ function [] = plot_sim_2d( )
             end
         end
         plotTree("output_tree_" + num2str(i-1) + ".txt", false);
-        plotPath(allWPS(wp_index:j,:));
+        plotPath(allWPS(wp_index-1:j,:));
         wp_index = j +1;
         if length(pWPS(:,1)) > 2
             pause;
