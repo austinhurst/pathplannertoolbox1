@@ -95,9 +95,9 @@ void pathPlanner::setup_flyZoneCheck()				// This function sets up alll of the s
 }
 
 
-//*********************************************************************************************************************************************************
-//*********************************************************************************************************************************************************
-//*********************************************************************************************************************************************************
+//****************************************************************LINE*************************************************************************************
+//****************************************************************LINE*************************************************************************************
+//****************************************************************LINE*************************************************************************************
 bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) // Point start, point end, radius (clearance)
 {
 	// THIS FUNCTION IS REALLY IMPORTANT. IT DETERMINES IF A LINE CONNECTING ps AND pe INTERSECT ANY OBSTACLE OR GET WITHIN r OF ANY OBSTACLE.
@@ -280,9 +280,9 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	return true; // The line is in the safe zone if it got to here!
 }
-//*********************************************************************************************************************************************************
-//*********************************************************************************************************************************************************
-//*********************************************************************************************************************************************************
+//****************************************************************LINE*************************************************************************************
+//****************************************************************LINE*************************************************************************************
+//****************************************************************LINE*************************************************************************************
 
 bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point start, point end, radius (
 {
@@ -334,6 +334,178 @@ bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point st
 		if (sqrt(pow(NED.N - map.cylinders[i].N, 2) + pow(NED.E - map.cylinders[i].E, 2)) < map.cylinders[i].R + radius && -NED.D - radius < map.cylinders[i].H)
 			return false;
 	return true; // The coordinate is in the safe zone if it got to here!
+}
+
+
+//****************************************************************ARC**************************************************************************************
+//****************************************************************ARC**************************************************************************************
+//****************************************************************ARC**************************************************************************************
+bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double aradius, const NED_s cp, const double r,const bool ccw) // Point start, point end, arc radius, center point, clearance
+{
+	// THIS FUNCTION IS REALLY IMPORTANT. IT DETERMINES IF AN ARC CONNECTING ps AND pe INTERSECT ANY OBSTACLE OR GET WITHIN r OF ANY OBSTACLE.
+	// Preliminary Calculations about the line connecting ps and pe
+	double Ei, Ni;
+	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Check for Boundary Lines vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	bool withinBoundaries_ps, withinBoundaries_pe;
+	int crossed_lines_ps(0), crossed_lines_pe(0);	// This is a counter of the number of lines that the point is NORTH of.
+	for (unsigned int i = 0; i < nBPts; i++)
+	{
+		// vvvvvvvvvvvvvvvv Ray Casting, count how many crosses south vvvvvvvvvvvvvvvv
+		if (ps.E >= lineMinMax[i][2] && ps.E < lineMinMax[i][3])
+		{
+			if (ps.N > line_Mandb[i][0] * ps.E + line_Mandb[i][1])
+				crossed_lines_ps++;
+			else if (ps.N == line_Mandb[i][0] * ps.E + line_Mandb[i][1])
+				return false;
+		}
+		if (pe.E >= lineMinMax[i][2] && pe.E < lineMinMax[i][3])
+		{
+			if (pe.N > line_Mandb[i][0] * pe.E + line_Mandb[i][1])
+				crossed_lines_pe++;
+			else if (pe.N == line_Mandb[i][0] * pe.E + line_Mandb[i][1])
+				return false;
+		}
+		// ^^^^^^^^^^^^^^^^ Ray Casting, count how many crosses south ^^^^^^^^^^^^^^^^
+
+		//vvvvvvvvvvvvvvvvvvvvvvvvvvvv Check if any point on the line gets too close to the boundary vvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		if (cp.E >= lineMinMax[i][2] - r - aradius && cp.E <= lineMinMax[i][3] + r + aradius && cp.N >= lineMinMax[i][0] - r - aradius && cp.N <= lineMinMax[i][1] + r + aradius)
+		{
+			double bt;
+			// Calculate the intersection point of the line and the perpendicular line connecting the point
+			bt = cp.N - line_Mandb[i][2] * cp.E;
+			Ei = (bt - line_Mandb[i][1]) / (line_Mandb[i][3]);
+			Ni = line_Mandb[i][2] * Ei + bt;
+			if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
+			{
+				// a dot b = A*B*cos(theta)
+				if (line_intersects_arc(Ni, Ei, cp, ps, pe, ccw))
+				{
+					if (sqrt(pow(Ni - cp.N, 2) + pow(Ei - cp.E, 2)) - aradius < r) { return false; }
+				}
+				else
+				{
+					bt = ps.N - line_Mandb[i][2] * ps.E;
+					Ei = (bt - line_Mandb[i][1]) / (line_Mandb[i][3]);
+					Ni = line_Mandb[i][2] * Ei + bt;
+					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
+					{
+						if (sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2)) < r) { return false; }
+					}
+					else if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) < r) { return false; }
+					else if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - ps.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - ps.E, 2)) < r) { return false; }
+					bt = pe.N - line_Mandb[i][2] * pe.E;
+					Ei = (bt - line_Mandb[i][1]) / (line_Mandb[i][3]);
+					Ni = line_Mandb[i][2] * Ei + bt;
+					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
+					{
+						if (sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2)) < r) { return false; }
+					}
+					else if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) < r) { return false; }
+					//else if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - pe.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - pe.E, 2)) < r) { return false; }
+				}
+			}
+			else
+			{
+				if (line_intersects_arc(map.boundary_pts[i].N, map.boundary_pts[i].E, cp, ps, pe, ccw))
+				{
+					if (sqrt(pow(map.boundary_pts[i].N - cp.N, 2) + pow(map.boundary_pts[i].E - cp.E, 2)) - aradius < r) { return false; }
+				}
+				//if (line_intersects_arc(map.boundary_pts[(i + 1) % nBPts].N, map.boundary_pts[(i + 1) % nBPts].E, cp, ps, pe, ccw))
+				//{
+				//	if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - cp.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - cp.E, 2)) - aradius < r) { return false; }
+				//}
+				if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) - aradius < r) { return false; }
+				if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) - aradius < r) { return false; }
+				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - ps.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - ps.E, 2)) - aradius < r) { return false; }
+				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - pe.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - pe.E, 2)) - aradius < r) { return false; }
+			}
+		}
+		//^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check if any point on the line gets too close to the boundary ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	}
+	// vvvvvvvvvvvvvvvv Finish up checking if the end points were both inside the boundary (ray casting) vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	withinBoundaries_ps = crossed_lines_ps % 2; // If it crosses an even number of boundaries it is NOT inside, if it crosses an odd number it IS inside
+	withinBoundaries_pe = crossed_lines_pe % 2;
+	if (withinBoundaries_ps == false || withinBoundaries_pe == false)
+		return false;
+	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
+	if (is3D)
+	{
+		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
+			return false;
+		if (-pe.D < minFlyHeight + r || -pe.D > maxFlyHeight - r)
+			return false;
+	}
+	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
+
+	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check for Boundary Lines ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Check for Cylinder Obstacles vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	bool clearThisCylinder;
+	NED_s cylinderPoint;
+	for (unsigned int i = 0; i < map.cylinders.size(); i++)
+	{
+		if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) > r + aradius + map.cylinders[i].R)
+			clearThisCylinder = true;
+		else if (line_intersects_arc(map.cylinders[i].N, map.cylinders[i].E, cp, ps, pe, ccw))
+		{
+			if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) - aradius - map.cylinders[i].R < r) { clearThisCylinder = false; }
+		}
+		else
+		{
+			if (sqrt(pow(map.cylinders[i].N - ps.N, 2) + pow(map.cylinders[i].E - ps.E, 2)) - map.cylinders[i].R < r) { clearThisCylinder = false; }
+			else if (sqrt(pow(map.cylinders[i].N - pe.N, 2) + pow(map.cylinders[i].E - pe.E, 2)) - map.cylinders[i].R < r) { clearThisCylinder = false; }
+			else { clearThisCylinder = true; }
+		}
+		if (is3D && clearThisCylinder == false)
+		{
+			if (ps.D < -map.cylinders[i].H - r && pe.D < -map.cylinders[i].H - r)
+				clearThisCylinder = true;
+		}
+		if (clearThisCylinder == false)
+			return false;
+	}
+	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Check for Cylinder Obstacles ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	return true; // The line is in the safe zone if it got to here!
+}
+//****************************************************************ARC**************************************************************************************
+//****************************************************************ARC**************************************************************************************
+//****************************************************************ARC**************************************************************************************
+bool pathPlanner::line_intersects_arc(double Ni, double Ei, NED_s cp, NED_s ps, NED_s pe, bool ccw)
+{
+	// Find angle from cp to ps
+	double aC2s = atan2(ps.N - cp.N, ps.E - cp.E);
+	// Find angle from cp to pe
+	double aC2e = atan2(pe.N - cp.N, pe.E - cp.E);
+	// Find angle from cp to Ni, Ei
+	double aC2i = atan2(Ni - cp.N, Ei - cp.E);
+	// Do they overlap?
+	if (ccw)
+	{
+		if (aC2i >= aC2s && aC2i <= aC2e)
+			return true;
+		else if (aC2s > aC2e)
+		{
+			if ((aC2i >= aC2s || aC2i <= aC2e))
+				return true;
+		}
+	}
+	else
+	{
+		if (aC2i <= aC2s && aC2i >= aC2e)
+			return true;
+		else if (aC2e > aC2s)
+		{
+			if (aC2i <= aC2s || aC2i >= aC2e)
+				return true;
+		}
+	}
+	return false;
 }
 bool pathPlanner::lineAndPoint2d(NED_s ls, NED_s le, double MinMax[], double Mandb[], NED_s p, double r)
 {
