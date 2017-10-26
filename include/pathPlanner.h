@@ -24,13 +24,15 @@ public:
 	int total_nWPS;										// Total number of waypoints
 private:
 	bool lineAndPoint2d(NED_s ls, NED_s le, double MinMax[], double Mandb[], NED_s p, double r);	// Function called by the LINE flyZoneCheck(NED,NED,radius)
+	bool line_intersects_arc(double Ni, double Ei, NED_s cp, NED_s ps, NED_s pe, bool ccw);			// This function finds if the line intersects the arc or not.
 protected:
 	fileReader *input_file;								// address of the input file
 	vector<vector<NED_s> > all_wps;						// final path waypoints,
 	vector<double> path_distances;						// Distances for the final path.
 	map_s map;											// This is the terrain map that contains the boundary and obstacle information (static)
 	void setup_flyZoneCheck();							// Function that does calculations on the boundary lines in preparation to flyZoneCheck()
-	bool flyZoneCheck(const NED_s ps, const NED_s pe, const double r);	// Checks to see if a LINE is at least radius away from an obstacle.
+	bool flyZoneCheck(const NED_s ps, const NED_s pe, const double r);									// Checks to see if a LINE is at least radius away from an obstacle.
+	bool flyZoneCheck(const NED_s ps, const NED_s pe, const double aradius, const NED_s cp, const double r, const bool ccw);	// Checks to see if an ARC is at least radius away from an obstacle.
 	bool flyZoneCheck(const NED_s NED, const double r);	// Checks to see if a POINT is at least radius away from an obstacle.
 	void compute_performance();							// After an algorithm runs this computes some basic performance stats.
 	unsigned int nBPts;									// Number of boundary points
