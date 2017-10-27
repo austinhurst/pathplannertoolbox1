@@ -446,7 +446,6 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Check for Cylinder Obstacles vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	bool clearThisCylinder;
-	NED_s cylinderPoint;
 	for (unsigned int i = 0; i < map.cylinders.size(); i++)
 	{
 		if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) > r + aradius + map.cylinders[i].R)
