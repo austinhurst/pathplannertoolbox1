@@ -21,6 +21,9 @@ public:
 	int numWps;
 	unsigned int seed;
 
+	// Plane settings
+	double turn_radius;
+
 	// General Path Planning Algorithm Settings
 	double clearance;
 	unsigned int iters_limit;
@@ -48,6 +51,7 @@ public:
 	string primary_wps_out_file;
 	string tree_file;
 	string path_file;
+	string special_pfile;
 private:
 
 };

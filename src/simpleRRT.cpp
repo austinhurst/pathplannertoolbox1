@@ -214,8 +214,8 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 	double A = sqrt(pow(par.E - mid.E, 2) + pow(par.N - mid.N, 2) + pow(par.D - mid.D, 2));
 	double B = sqrt(pow(nex.N - mid.N, 2) + pow(nex.E - mid.E, 2) + pow(nex.D - mid.D, 2));
 	double Fangle = acos((a_dot_b) / (A*B));
-	double turn_radius = 20; // MAGIC NUMBER!
-	double distance_in = turn_radius / tan(Fangle / 2.0);//sqrt(turn_radius*turn_radius / sin(Fangle / 2.0) / sin(Fangle / 2.0) - turn_radius*turn_radius);
+	double turn_radius = input_file->turn_radius;
+	double distance_in = turn_radius / tan(Fangle / 2.0);// Notice this equation was written incorrectly in the UAV book //sqrt(turn_radius*turn_radius / sin(Fangle / 2.0) / sin(Fangle / 2.0) - turn_radius*turn_radius);
 	if (distance_in > sqrt(pow(par.N - mid.N,2) + pow(par.E - mid.E, 2) + pow(par.D - mid.D, 2)) || distance_in > sqrt(pow(mid.N - nex.N, 2) + pow(mid.E - nex.E, 2) + pow(mid.D - nex.D, 2)))
 		found_feasible_link = false;
 	else
@@ -224,12 +224,11 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 		double theta = atan2(nex.N - mid.N, nex.E - mid.E);
 		pe.N = (mid.N) + sin(theta)*distance_in;
 		pe.E = (mid.E) + cos(theta)*distance_in;
-		pe.D = 0;// 2D
+		pe.D = 0;// 2D, this will need to be fixed once in 3d
 		double gamma = atan2(par.N - mid.N, par.E - mid.E);
 		ps.N = (mid.N) + sin(gamma)*distance_in;
 		ps.E = (mid.E) + cos(gamma)*distance_in;
-		ps.D = 0;// 2D
-		nex.E = (mid.E) + cos(theta)*D;
+		ps.D = 0;// 2D, this will need to be fixed once in 3d
 		// Find out whether it is going to the right (cw) or going to the left (ccw)
 		// Use the cross product to see if it is cw or ccw
 		bool ccw;
@@ -238,13 +237,21 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 			ccw = false;
 		else
 			ccw = true;
-
-		cp.N = (mid.N) + sin((theta + gamma) / 2.0)*turn_radius / sin(Fangle / 2.0);
-		cp.E = (mid.E) + cos((theta + gamma) / 2.0)*turn_radius / sin(Fangle / 2.0);
+		if (ccw)
+		{
+			cp.N = (mid.N) + sin(gamma - Fangle / 2.0)*turn_radius / sin(Fangle / 2.0);
+			cp.E = (mid.E) + cos(gamma - Fangle / 2.0)*turn_radius / sin(Fangle / 2.0);
+		}
+		else
+		{
+			cp.N = (mid.N) + sin(gamma + Fangle / 2.0)*turn_radius / sin(Fangle / 2.0);
+			cp.E = (mid.E) + cos(gamma + Fangle / 2.0)*turn_radius / sin(Fangle / 2.0);
+		}
 		cp.D = mid.D;
 		if (flyZoneCheck(ps, pe, turn_radius, cp, clearance, ccw) == false)
 		{
 			found_feasible_link = false;
+			//cout << i << "\t" << ps.N << "\t" << ps.E << "\t" << endl << i << "\t" << pe.N << "\t" << pe.E << endl << endl;
 		}
 		//else
 		//cout << i << "\t" << ps.N << "\t" << ps.E << "\t" << endl << i << "\t" << pe.N << "\t" << pe.E << endl << endl;
@@ -288,6 +295,14 @@ void simpleRRT::fprint_static_solution()						// Print the solution to the stati
 	for (unsigned int i = 0; i < all_wps.size(); i++)
 		for (unsigned int j = 0; j < all_wps[i].size(); j++)
 			path_file << all_wps[i][j].N << "\t" << all_wps[i][j].E << "\t" << all_wps[i][j].D << endl;
+	path_file.close();
+
+	// Print A special file just for MATLAB plotting functions
+	string spfilename = input_file->special_pfile;
+	ofstream spath_file;
+	spath_file.open(spfilename.c_str());
+	spath_file << input_file->turn_radius << endl;
+	spath_file.close();
 }
 void simpleRRT::print_tree(node* ptr, ofstream& file)
 {

@@ -1,7 +1,9 @@
 function [] = plot_sim_2d( )
+    path_type = 1;                          % Type 1 = fillet paths
     pWPS = load("output_primary_wps.txt");
     allWPS = load("output_path.txt");
-    
+    special_params = load("output_special_path_params.txt");
+    allWPS_plus_arc = [];
     f = figure (1);
     hold on
     plotBoundaries("output_boundaries.txt",f);
@@ -15,7 +17,13 @@ function [] = plot_sim_2d( )
             end
         end
         plotTree("output_tree_" + num2str(i-1) + ".txt", false);
-        plotPath(allWPS(wp_index-1:j,:));
+        % Figure out the points to define a fillet path
+        path_data = allWPS(wp_index-1:j,:);
+        if path_type == 1
+            path_data = fillet_path(path_data,special_params(1));
+            allWPS_plus_arc = [allWPS_plus_arc;path_data];
+        end
+        plotPath(path_data);
         wp_index = j +1;
         if length(pWPS(:,1)) > 2
             pause;
@@ -24,6 +32,10 @@ function [] = plot_sim_2d( )
     if length(pWPS(:,1)) > 2
         plotTree("output_tree_" + num2str(0) + ".txt", true);
     end
-    plotPath(allWPS);
+    if path_type == 1
+        plotPath(allWPS_plus_arc);
+    else
+        plotPath(allWPS);
+    end
     hold off
 end

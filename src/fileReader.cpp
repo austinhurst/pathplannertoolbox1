@@ -42,6 +42,8 @@ fileReader::fileReader(string input_file)
 				numWps = stoi(variable_value);
 			else if (variable_name == "seed")
 				seed = stoul(variable_value);
+			else if (variable_name == "turn_radius")
+				turn_radius = stod(variable_value);
 			else if (variable_name == "clearance")
 				clearance = stod(variable_value);
 			else if (variable_name == "iters_limit")
@@ -86,6 +88,8 @@ fileReader::fileReader(string input_file)
 				tree_file = variable_value;
 			else if (variable_name == "path_file")
 				path_file = variable_value;
+			else if (variable_name == "special_pfile")
+				special_pfile = variable_value;
 		}
 	}
 	fin.close();
@@ -94,6 +98,7 @@ fileReader::fileReader(string input_file)
 	cylinders_out_file = cylinders_out_file       + file_extension;
 	primary_wps_out_file = primary_wps_out_file   + file_extension;
 	path_file = path_file						  + file_extension;
+	special_pfile = special_pfile				  + file_extension;
 }
 fileReader::~fileReader()
 {

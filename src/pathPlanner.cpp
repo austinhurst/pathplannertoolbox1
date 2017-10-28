@@ -381,7 +381,10 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 				// a dot b = A*B*cos(theta)
 				if (line_intersects_arc(Ni, Ei, cp, ps, pe, ccw))
 				{
-					if (sqrt(pow(Ni - cp.N, 2) + pow(Ei - cp.E, 2)) - aradius < r) { return false; }
+					if (sqrt(pow(Ni - cp.N, 2) + pow(Ei - cp.E, 2)) - aradius < r)
+					{ 
+						return false;
+					}
 				}
 				else
 				{
@@ -390,18 +393,30 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 					Ni = line_Mandb[i][2] * Ei + bt;
 					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
 					{
-						if (sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2)) < r) { return false; }
+						if (sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2)) < r)
+						{ 
+							return false;
+						}
 					}
-					else if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) < r) { return false; }
+					else if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) < r)
+					{
+						return false;
+					}
 					else if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - ps.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - ps.E, 2)) < r) { return false; }
 					bt = pe.N - line_Mandb[i][2] * pe.E;
 					Ei = (bt - line_Mandb[i][1]) / (line_Mandb[i][3]);
 					Ni = line_Mandb[i][2] * Ei + bt;
 					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
 					{
-						if (sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2)) < r) { return false; }
+						if (sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2)) < r) 
+						{
+							return false;
+						}
 					}
-					else if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) < r) { return false; }
+					else if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) < r) 
+					{
+						return false;
+					}
 					//else if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - pe.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - pe.E, 2)) < r) { return false; }
 				}
 			}
@@ -409,14 +424,23 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 			{
 				if (line_intersects_arc(map.boundary_pts[i].N, map.boundary_pts[i].E, cp, ps, pe, ccw))
 				{
-					if (sqrt(pow(map.boundary_pts[i].N - cp.N, 2) + pow(map.boundary_pts[i].E - cp.E, 2)) - aradius < r) { return false; }
+					if (sqrt(pow(map.boundary_pts[i].N - cp.N, 2) + pow(map.boundary_pts[i].E - cp.E, 2)) - aradius < r) 
+					{ 
+						return false;
+					}
 				}
 				//if (line_intersects_arc(map.boundary_pts[(i + 1) % nBPts].N, map.boundary_pts[(i + 1) % nBPts].E, cp, ps, pe, ccw))
 				//{
 				//	if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - cp.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - cp.E, 2)) - aradius < r) { return false; }
 				//}
-				if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) - aradius < r) { return false; }
-				if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) - aradius < r) { return false; }
+				if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) - aradius < r) 
+				{
+					return false;
+				}
+				if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) - aradius < r) 
+				{
+					return false; 
+				}
 				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - ps.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - ps.E, 2)) - aradius < r) { return false; }
 				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - pe.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - pe.E, 2)) - aradius < r) { return false; }
 			}
@@ -452,12 +476,21 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 			clearThisCylinder = true;
 		else if (line_intersects_arc(map.cylinders[i].N, map.cylinders[i].E, cp, ps, pe, ccw))
 		{
-			if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) - aradius - map.cylinders[i].R < r) { clearThisCylinder = false; }
+			if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) - aradius - map.cylinders[i].R < r) 
+			{
+				clearThisCylinder = false;
+			}
 		}
 		else
 		{
-			if (sqrt(pow(map.cylinders[i].N - ps.N, 2) + pow(map.cylinders[i].E - ps.E, 2)) - map.cylinders[i].R < r) { clearThisCylinder = false; }
-			else if (sqrt(pow(map.cylinders[i].N - pe.N, 2) + pow(map.cylinders[i].E - pe.E, 2)) - map.cylinders[i].R < r) { clearThisCylinder = false; }
+			if (sqrt(pow(map.cylinders[i].N - ps.N, 2) + pow(map.cylinders[i].E - ps.E, 2)) - map.cylinders[i].R < r) 
+			{ 
+				clearThisCylinder = false;
+			}
+			else if (sqrt(pow(map.cylinders[i].N - pe.N, 2) + pow(map.cylinders[i].E - pe.E, 2)) - map.cylinders[i].R < r) 
+			{
+				clearThisCylinder = false;
+			}
 			else { clearThisCylinder = true; }
 		}
 		if (is3D && clearThisCylinder == false)
