@@ -36,20 +36,23 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		root->NED.D = 0;									// 0 for simple 2d
 		root->parent = NULL;								// No parent
 		root->distance = 0.0;								// 0 distance.
+		root->available_dist = 0.0;							// No available distance, (No parent assumption)
 		root->path_type = 0;								// straight lines for now at the primary waypoints.
 		root_ptrs.push_back(root);
 		node *second2last = root;							// This will be set as the second to last waypoint
 		double theta;
+		clearance = input_file->clearance;
 		double clearanceP = clearance;
+		double distance_in, fillet_angle;
 
-		// Check to see if it is possible to go stright to the next path
+		// Check to see if it is possible to go straight to the next path
 		if (alg_input.connect_to_end && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
 			reached_next_wp = true;								// Set the flag
 		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
 			reached_next_wp = true;								// Set the flag
 
 		// Keep adding to the tree until you have found a solution
-		unsigned int added_nodes = 0;							// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
+		double added_nodes = 0.0;								// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
 		while (reached_next_wp == false)
 		{
 			node *vpos = new node;								// vpos is the next node to add to the tree
@@ -96,17 +99,25 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				{
 					found_feasible_link = true;
 					vpos->parent = closest_node;
-					if (alg_input.path_type == 1 && vpos && root != vpos->parent)								// If the path type is fillets, check to see if the fillet is possible.
-					{
-						found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED);
-					}
+					if (alg_input.path_type == 1 && root != vpos->parent)								// If the path type is fillets, check to see if the fillet is possible.
+						found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED, closest_node->available_dist, &distance_in, &fillet_angle);
 				}
 			}
 			// add the new node to the tree
 			closest_node->children.push_back(vpos);
 			vpos->distance = sqrt(pow(closest_node->NED.N - vpos->NED.N, 2) + pow(closest_node->NED.E - vpos->NED.E, 2) + pow(closest_node->NED.D - vpos->NED.D, 2));
+			if (alg_input.path_type == 1 && vpos->parent != root)
+			{
+				// Adjust the vpos->distance to account for the turning radius ( a little bit smaller.)
+				vpos->available_dist = vpos->distance - distance_in;
+				vpos->distance = vpos->distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
+			}
+			else
+				vpos->available_dist = vpos->distance;
+			
+			// Make provisions so that the algorithm doesn't hang
 			added_nodes++;
-			if (added_nodes == iters_limit/2 || added_nodes == floor(iters_limit*3.0/4.0) || added_nodes == floor(iters_limit*7.0 / 8.0))
+			if (added_nodes == floor(iters_limit/2.0) || added_nodes == floor(iters_limit*3.0/4.0) || added_nodes == floor(iters_limit*7.0 / 8.0))
 			{
 				cout << "DECREASING THE CLEARANCE LEVEL" << endl;
 				clearance = clearance / 2.0;
@@ -118,17 +129,22 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				reached_next_wp = true;
 				second2last = vpos;
 			}
+
 			// Check to see if it is possible to go from this newly added node to the next primary waypoint
 			if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
 			{
 				reached_next_wp = true;								// Set the flag
 				second2last = vpos;
+				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
+					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
 			}								// Set the flag
 			if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
 			{
 				reached_next_wp = true;								// Set the flag
 				second2last = vpos;
-			}								// Set the flag
+				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
+					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
+			}
 		}
 		// We can go to the next waypoint!
 		// The following code wraps up the algorithm.
@@ -138,24 +154,25 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		second2last->children.push_back(final_node);
 		final_node->parent = second2last;
 		final_node->distance = sqrt(pow(final_node->NED.N - second2last->NED.N, 2) + pow(final_node->NED.E - second2last->NED.E, 2) + pow(final_node->NED.D - second2last->NED.D, 2));
-
+		if (alg_input.path_type == 1 && final_node->parent != root)
+			final_node->distance = final_node->distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
 		// populate all wps by working back up the tree
-		stack<NED_s> wpstack;
+		stack<node*> wpstack;
 		node *current_node = final_node;
 		while (current_node != root)
 		{
-			wpstack.push(current_node->NED);
+			wpstack.push(current_node);
 			pdistance += current_node->distance;
 			current_node = current_node->parent;
 		}
-		wpstack.push(root->NED);
+		wpstack.push(root);
 		path_distances.push_back(pdistance);
 
 		// Now put all of the waypoints into the all_wps vector
 		vector<NED_s> wps_to_PrimaryWP;
 		while (!wpstack.empty())
 		{
-			wps_to_PrimaryWP.push_back(wpstack.top());
+			wps_to_PrimaryWP.push_back(wpstack.top()->NED);
 			wpstack.pop();
 		}
 		all_wps.push_back(wps_to_PrimaryWP);
@@ -163,29 +180,38 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 
 		// Smooth Out the path (Algorithm 11 in the UAV book)
 		vector<NED_s> path_smoothed;
+		vector<double> available_ds;
 		double smooth_distances = 0;
 		unsigned int i_node = 0;
 		unsigned int j_node = 1;
+		double line_Distance;
 		path_smoothed.push_back(all_wps[i][0]);
 		while (j_node < all_wps[i].size())
 		{
-			if (all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false || (i_node >= 1 && check_fillet(path_smoothed[i_node-1],path_smoothed[i_node], all_wps[i][j_node + 1]) == false)))
+			bool bad_path_flag = false;
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+				bad_path_flag = true;
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+				bad_path_flag = true;
+			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], &distance_in, &fillet_angle) == false)
+				bad_path_flag = true;
+			if (bad_path_flag)
 			{
 				path_smoothed.push_back(all_wps[i][j_node]);
 				i_node++;
-				smooth_distances += sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node -1].N,2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E,2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D,2));
+				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+				smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
+				available_ds.push_back(line_Distance - distance_in);
 			}
 			j_node++;
 		}
-
+		smooth_distances += sqrt(pow(map.wps[i+1].N - path_smoothed[i_node].N, 2) + pow(map.wps[i+1].E - path_smoothed[i_node].E, 2) + pow(map.wps[i+1].D - path_smoothed[i_node].D, 2));
 		path_distances[i] = smooth_distances;
 		all_wps[i].swap(path_smoothed);
 	}
 	// Add the final waypoint to the waypoint list.
 	all_wps[map.wps.size() - 2].push_back(map.wps[map.wps.size() - 1]);
 	compute_performance();									// Do this after you finish the algorithm so that we can get the right performance values.
-	
-
 
 	//*********************************************************************************************
 	// We still need to do some improvements.
@@ -205,7 +231,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	//		Possibly get the algorithm to compute multiple paths to get the optimal solution.
 	//**********************************************************************************************
 }
-bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
+bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle)
 {
 	bool found_feasible_link = true;
 	// Calculate the fillet and check to see if it is a good fit.
@@ -216,7 +242,7 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 	double Fangle = acos((a_dot_b) / (A*B));
 	double turn_radius = input_file->turn_radius;
 	double distance_in = turn_radius / tan(Fangle / 2.0);// Notice this equation was written incorrectly in the UAV book //sqrt(turn_radius*turn_radius / sin(Fangle / 2.0) / sin(Fangle / 2.0) - turn_radius*turn_radius);
-	if (distance_in > sqrt(pow(par.N - mid.N,2) + pow(par.E - mid.E, 2) + pow(par.D - mid.D, 2)) || distance_in > sqrt(pow(mid.N - nex.N, 2) + pow(mid.E - nex.E, 2) + pow(mid.D - nex.D, 2)))
+	if (distance_in > avail_dis || distance_in > sqrt(pow(mid.N - nex.N, 2) + pow(mid.E - nex.E, 2) + pow(mid.D - nex.D, 2)))
 		found_feasible_link = false;
 	else
 	{
@@ -224,11 +250,11 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 		double theta = atan2(nex.N - mid.N, nex.E - mid.E);
 		pe.N = (mid.N) + sin(theta)*distance_in;
 		pe.E = (mid.E) + cos(theta)*distance_in;
-		pe.D = 0;// 2D, this will need to be fixed once in 3d
+		pe.D = 0;	// 2D, this will need to be fixed once in 3d
 		double gamma = atan2(par.N - mid.N, par.E - mid.E);
 		ps.N = (mid.N) + sin(gamma)*distance_in;
 		ps.E = (mid.E) + cos(gamma)*distance_in;
-		ps.D = 0;// 2D, this will need to be fixed once in 3d
+		ps.D = 0;	// 2D, this will need to be fixed once in 3d
 		// Find out whether it is going to the right (cw) or going to the left (ccw)
 		// Use the cross product to see if it is cw or ccw
 		bool ccw;
@@ -256,21 +282,19 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex)
 		//else
 		//cout << i << "\t" << ps.N << "\t" << ps.E << "\t" << endl << i << "\t" << pe.N << "\t" << pe.E << endl << endl;
 	}
+	*din = distance_in;
+	*cangle = 2.0*atan(distance_in / turn_radius);
 	return found_feasible_link;
 }
 void simpleRRT::delete_tree()
 {
 	for (unsigned int i = 0; i < root_ptrs.size(); i++)		// Delete every tree generated
-	{
 		delete_node(root_ptrs[i]);
-	}
 }
 void simpleRRT::delete_node(node* pn)						// Recursively delete every node
 {
 	for (unsigned int i = 0; i < pn->children.size();i++)
-	{
 		delete_node(pn->children[i]);
-	}
 	pn->children.clear();
 	delete pn;
 }

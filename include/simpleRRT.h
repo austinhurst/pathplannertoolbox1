@@ -43,6 +43,7 @@ private:
 		node* parent;														// Pointer to the parent of this node
 		double distance;													// Distance from this node to its parent
 		int path_type;														// Path type from the parent, 0 = straight line, 1 = fillet, 2 = dubins
+		double available_dist;												// This is the distance from the parent to this node that is linear.
 	};
 	double D;																// If used, this is the distance the algorithm uses between each node
 	node* find_closest_node(node* nin, NED_s P, node* minNode, double* minD)// This recursive function return the closes node to the input point P, for some reason it wouldn't go in the cpp...
@@ -66,6 +67,6 @@ private:
 	vector<node*> root_ptrs;												// Vector of all roots, each element is the start of the tree to reach the next primary waypoint
 	void print_tree(node* ptr, ofstream& file);								// Print the tree in a way that MATLAB can easily graph this tree with plot()
 	node *closest_node;														// This is a variable that is used to find the closest node - if it is in here there are no memory leaks.
-	bool check_fillet(NED_s par, NED_s mid, NED_s nex);						// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
+	bool check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle);	// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
 };
 #endif

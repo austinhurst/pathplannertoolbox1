@@ -14,7 +14,7 @@ numWps  = 10;			# Number of primary waypoints
 seed	= 123456789;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
-turn_radius = 20.0;		# Turn radius of the plane to plan for in the path.
+turn_radius = 20;		# Turn radius of the plane to plan for in the path.
 
 
 # General Path Planning Algorithm Settings
@@ -34,8 +34,7 @@ maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
 minFlyHeight = 30.48; 		# 23.7744 m = 100 - 22 ft. (positive value)
 maxFlyHeight = 228.6; 		# 221.8944 m = 750 - 22 ft. (positive value)
 waypoint_clearance = 15;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
-nCyli        = 120;		# Number of Cylindrical Obstacles
-
+nCyli        = 20;		# Number of Cylindrical Obstacles
 
 # Output Files
 file_extension        = .txt;	# This is the file extension that will go on all of the files

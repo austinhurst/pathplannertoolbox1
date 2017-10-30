@@ -34,8 +34,18 @@ function [] = plot_sim_2d( )
     end
     if path_type == 1
         plotPath(allWPS_plus_arc);
+        total_path_distance = 0;
+        for i = 2:length(allWPS_plus_arc(:,1))
+            total_path_distance = total_path_distance + sqrt((allWPS_plus_arc(i,1) - allWPS_plus_arc(i-1,1))^2 + (allWPS_plus_arc(i,2) - allWPS_plus_arc(i-1,2))^2 + (allWPS_plus_arc(i,3) - allWPS_plus_arc(i-1,3))^2);
+        end
+        %disp([total_path_distance]); 
     else
         plotPath(allWPS);
+                total_path_distance = 0;
+        for i = 2:length(allWPS(:,1))
+            total_path_distance = total_path_distance + sqrt((allWPS(i,1) - allWPS(i-1,1))^2 + (allWPS(i,2) - allWPS(i-1,2))^2 + (allWPS(i,3) - allWPS(i-1,3))^2);
+        end
+        %disp([total_path_distance]);
     end
     hold off
 end
