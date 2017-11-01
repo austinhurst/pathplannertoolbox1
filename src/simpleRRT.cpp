@@ -22,23 +22,52 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	// Can gaussian the D, distance between nodes are gaussian	alg_input.gaussianD, alg_input.gaussianSTD
 	// Can uniform to the point, connect to end or not.			alg_input.connect_to_end
 	
+	vector<vector<double> > bad_angles;
+	vector<double> temp_bad_angles;
+	temp_bad_angles.push_back(NULL);
+	bad_angles.push_back(temp_bad_angles);
+	// Check a circle around each waypoint
+	double check_radius = input_file->turn_radius*1.5;
+	unsigned int num_angle_checks = input_file->nCyli;								// Just needs to be some number greater than about 8?
+	double small_ball_radius = 3.141592653*check_radius / num_angle_checks;
+	NED_s small_ball;
+	double small_ball_angle = 0;
+	for (unsigned int i = 1; i < map.wps.size()-1; i++)
+	{
+		temp_bad_angles.clear();
+		for (unsigned int j = 0; j < num_angle_checks; j++)
+		{
+			small_ball_angle = j*2.0 * 3.141592653 / num_angle_checks - 3.141592653; // Get angles from -180 to 180
+			small_ball.N = map.wps[i].N + check_radius*sin(small_ball_angle);
+			small_ball.E = map.wps[i].E + check_radius*cos(small_ball_angle);
+			small_ball.D = map.wps[i].D;
+			if (flyZoneCheck(small_ball, small_ball_radius) == false)
+				temp_bad_angles.push_back(small_ball_angle);
+		}
+		bad_angles.push_back(temp_bad_angles);
+	}
 	// Solve to each Primary Waypoint
 	bool reached_next_wp, found_feasible_link;
 	NED_s P;
 
+	for (unsigned int i = 0; i < map.wps.size() - 1; i++)
+	{
+		node *root_in = new node;								// Starting position of the tree (and the waypoint beginning)
+		root_in->NED = map.wps[i];
+		root_in->NED.D = 0;									// 0 for simple 2d
+		root_in->parent = NULL;								// No parent
+		root_in->distance = 0.0;								// 0 distance.
+		root_in->available_dist = 0.0;							// No available distance, (No parent assumption)
+		root_in->path_type = 0;								// straight lines for now at the primary waypoints.
+		root_ptrs.push_back(root_in);
+	}
+	node *root;
 	// For every Primary Waypoint develop a tree and a find a path
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
 	{
 		// Set up some initial things for this waypoint to waypoint tree
 		reached_next_wp = false;							// Flag to see if you have reached the next waypoint
-		node *root = new node;								// Starting position of the tree (and the waypoint beginning)
-		root->NED = map.wps[i];
-		root->NED.D = 0;									// 0 for simple 2d
-		root->parent = NULL;								// No parent
-		root->distance = 0.0;								// 0 distance.
-		root->available_dist = 0.0;							// No available distance, (No parent assumption)
-		root->path_type = 0;								// straight lines for now at the primary waypoints.
-		root_ptrs.push_back(root);
+		root = root_ptrs[i];
 		node *second2last = root;							// This will be set as the second to last waypoint
 		double theta;
 		clearance = input_file->clearance;
@@ -46,10 +75,10 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		double distance_in, fillet_angle;
 
 		// Check to see if it is possible to go straight to the next path
-		if (alg_input.connect_to_end && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
-			reached_next_wp = true;								// Set the flag
-		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
-			reached_next_wp = true;								// Set the flag
+		//if (alg_input.connect_to_end && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
+		//	reached_next_wp = true;								// Set the flag
+		//if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
+		//	reached_next_wp = true;								// Set the flag
 
 		// Keep adding to the tree until you have found a solution
 		double added_nodes = 0.0;								// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
@@ -145,6 +174,111 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
 					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
 			}
+			if (reached_next_wp == true && i < map.wps.size() - 2 && false)
+			{
+				bool found_at_least_1_good_path = false;
+				// Make sure that it is possible to go to the next waypoint
+
+				double alpha = 3.141592653/2.0;			// Start with 45.0 degrees
+				double R = 3 * input_file->turn_radius;
+				int num_circle_trials = 10;				// Will try num_circle_trials on one side and num_circle_trials on the other side.
+				double dalpha = (3.141592653 - alpha)/num_circle_trials;
+
+				double approach_angle = atan2(map.wps[i + 1].N - vpos->NED.N, map.wps[i + 1].E - vpos->NED.E);
+				double beta, lambda, Q, phi, theta, zeta, gamma, d;
+				NED_s cpa, cea, lea, fake_wp;
+				for (int j = 0; j < num_circle_trials; j++)
+				{
+					alpha = alpha + dalpha;
+					beta = 3.141592653/2 - alpha;
+					lambda = 3.141592653 - 2*beta;
+					Q = sqrt(R*(R - input_file->turn_radius*sin(lambda)/sin(beta)) + input_file->turn_radius*input_file->turn_radius);
+					phi = 3.141592653 - asin(R*sin(beta)/Q);
+					theta = acos(input_file->turn_radius/Q);
+					zeta = (2*3.141592653 - phi - theta)/2.0;
+					gamma = 3.141592653 - 2*zeta;
+					d = input_file->turn_radius/tan(gamma/2.0);
+
+					// Check the positive side
+					fake_wp.N = map.wps[i + 1].N - d*sin(approach_angle);
+					fake_wp.E = map.wps[i + 1].E - d*cos(approach_angle);
+					fake_wp.D = map.wps[i + 1].D;
+
+					cpa.N = map.wps[i + 1].N + input_file->turn_radius*cos(approach_angle);
+					cpa.E = map.wps[i + 1].E - input_file->turn_radius*sin(approach_angle);
+					cpa.D = map.wps[i + 1].D;
+
+					cea.N = map.wps[i + 1].N + d*sin(gamma)*cos(approach_angle);
+					cea.E = fake_wp.E + d*cos(approach_angle + gamma);
+					cea.D = map.wps[i + 1].D;
+
+					lea.N = map.wps[i + 1].N + R*sin(approach_angle + alpha);
+					lea.E = map.wps[i + 1].E + R*cos(approach_angle + alpha);
+					lea.D = map.wps[i + 1].D;
+
+					if (flyZoneCheck(map.wps[i + 1], cea, input_file->turn_radius, cpa, clearance, false))
+						if (flyZoneCheck(cea, lea, clearance))
+						{
+							// Looks like things are going to work out for this maneuver!
+							found_at_least_1_good_path = true;
+							node *fake_child = new node;
+							node *normal_gchild = new node;
+							fake_child->NED = fake_wp;
+							fake_child->available_dist = 0;
+							fake_child->parent = root_ptrs[i + 1];
+							fake_child->distance = 2.0*zeta*input_file->turn_radius;
+							fake_child->path_type = 1;
+							root_ptrs[i + 1]->children.push_back(fake_child);
+
+							normal_gchild->NED = lea;
+							normal_gchild->available_dist = sqrt(R*(R - input_file->turn_radius*sin(lambda) / sin(beta)));
+							normal_gchild->parent = fake_child;
+							normal_gchild->distance = normal_gchild->available_dist;
+							normal_gchild->path_type = 1;
+							fake_child->children.push_back(normal_gchild);
+						}
+					// Check the negative side
+					fake_wp.N = map.wps[i + 1].N + d*sin(approach_angle);
+					fake_wp.E = map.wps[i + 1].E + d*cos(approach_angle);
+					fake_wp.D = map.wps[i + 1].D;
+
+					cpa.N = map.wps[i + 1].N - input_file->turn_radius*cos(approach_angle);
+					cpa.E = map.wps[i + 1].E + input_file->turn_radius*sin(approach_angle);
+					cpa.D = map.wps[i + 1].D;
+
+					cea.N = map.wps[i + 1].N - d*sin(gamma)*cos(approach_angle);
+					cea.E = fake_wp.E + d*cos(approach_angle - gamma);
+					cea.D = map.wps[i + 1].D;
+
+					lea.N = map.wps[i + 1].N + R*sin(approach_angle - alpha);
+					lea.E = map.wps[i + 1].E + R*cos(approach_angle - alpha);
+					lea.D = map.wps[i + 1].D;
+
+					if (flyZoneCheck(map.wps[i + 1], cea, input_file->turn_radius, cpa, clearance, false))
+						if (flyZoneCheck(cea, lea, clearance))
+						{
+							// Looks like things are going to work out for this maneuver!
+							found_at_least_1_good_path = true;
+							node *fake_child = new node;
+							node *normal_gchild = new node;
+							fake_child->NED = fake_wp;
+							fake_child->available_dist = 0;
+							fake_child->parent = root_ptrs[i + 1];
+							fake_child->distance = 2.0*zeta*input_file->turn_radius;
+							fake_child->path_type = 1;
+							root_ptrs[i + 1]->children.push_back(fake_child);
+
+							normal_gchild->NED = lea;
+							normal_gchild->available_dist = sqrt(R*(R - input_file->turn_radius*sin(lambda) / sin(beta)));
+							normal_gchild->parent = fake_child;
+							normal_gchild->distance = normal_gchild->available_dist;
+							normal_gchild->path_type = 1;
+							fake_child->children.push_back(normal_gchild);
+						}
+				}
+				if (found_at_least_1_good_path == false)
+					reached_next_wp = false;
+			}
 		}
 		// We can go to the next waypoint!
 		// The following code wraps up the algorithm.
@@ -186,6 +320,15 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		unsigned int j_node = 1;
 		double line_Distance;
 		path_smoothed.push_back(all_wps[i][0]);
+
+		//if (i != 0)
+		//{
+		//	i_node = 2;
+		//	j_node = 3;
+		//	path_smoothed.push_back(all_wps[i][1]);
+		//	path_smoothed.push_back(all_wps[i][2]);
+		//}
+
 		while (j_node < all_wps[i].size())
 		{
 			bool bad_path_flag = false;
