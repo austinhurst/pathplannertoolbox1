@@ -16,12 +16,7 @@ simpleRRT::~simpleRRT()
 	vector<node*>().swap(root_ptrs);						// Free the memory of the vector.
 }
 void simpleRRT::solve_static()								// This function solves for a path in between the waypoinnts (2 Dimensional)
-{
-	// Different Algorithm Settings
-	// Can vary the D, the distance between each node			alg_input.D
-	// Can gaussian the D, distance between nodes are gaussian	alg_input.gaussianD, alg_input.gaussianSTD
-	// Can uniform to the point, connect to end or not.			alg_input.connect_to_end
-	
+{	
 	vector<vector<double> > bad_angles;
 	vector<double> temp_bad_angles;
 	temp_bad_angles.push_back(NULL);
@@ -109,8 +104,27 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				}
 				double distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
 
-				// Find the closest node to the point P;
-				closest_node = find_closest_node(root, P, root, &distance);
+				// Find the closest node to the point P, if you are not trying to get to waypoint 1 (which is the second waypoint), then don't accept the root or the children of the root.
+
+				if (i == 0)
+					closest_node = find_closest_node(root, P, root, &distance);
+				else
+				{
+					distance = 9999999999999999999999.0; // Some crazy big number to start out with
+					double distance_gchild;
+					for (unsigned int j = 0; j < root->children.size(); j++)
+						for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
+						{
+							distance_gchild = sqrt(pow(P.N - root->children[j]->children[k]->NED.N, 2) + pow(P.E - root->children[j]->children[k]->NED.E, 2) + pow(P.D - root->children[j]->children[k]->NED.D, 2));
+							closest_node_gchild = find_closest_node(root->children[j]->children[k], P, root->children[j]->children[k], &distance_gchild);
+							if (distance_gchild < distance)
+							{
+								closest_node = closest_node_gchild;
+								distance = distance_gchild;
+							}
+						}
+				}
+
 				theta = atan2(P.N - closest_node->NED.N, P.E - closest_node->NED.E);
 
 				// Go a distance D along the line from closest node to P to find the next node position vpos
@@ -174,17 +188,17 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
 					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
 			}
-			if (reached_next_wp == true && i < map.wps.size() - 2 && false)
+			if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
 			{
 				bool found_at_least_1_good_path = false;
 				// Make sure that it is possible to go to the next waypoint
 
-				double alpha = 3.141592653/2.0;			// Start with 45.0 degrees
+				double alpha = 3.141592653/4.0;			// Start with 45.0 degrees
 				double R = 3 * input_file->turn_radius;
 				int num_circle_trials = 10;				// Will try num_circle_trials on one side and num_circle_trials on the other side.
 				double dalpha = (3.141592653 - alpha)/num_circle_trials;
 
-				double approach_angle = atan2(map.wps[i + 1].N - vpos->NED.N, map.wps[i + 1].E - vpos->NED.E);
+				double approach_angle = atan2(map.wps[i + 1].N - vpos->NED.N, map.wps[i + 1].E - vpos->NED.E) + 3.141592653;
 				double beta, lambda, Q, phi, theta, zeta, gamma, d;
 				NED_s cpa, cea, lea, fake_wp;
 				for (int j = 0; j < num_circle_trials; j++)
@@ -208,8 +222,8 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 					cpa.E = map.wps[i + 1].E - input_file->turn_radius*sin(approach_angle);
 					cpa.D = map.wps[i + 1].D;
 
-					cea.N = map.wps[i + 1].N + d*sin(gamma)*cos(approach_angle);
-					cea.E = fake_wp.E + d*cos(approach_angle + gamma);
+					cea.N = fake_wp.N + d*sin(gamma + approach_angle);
+					cea.E = fake_wp.E + d*cos(gamma + approach_angle);
 					cea.D = map.wps[i + 1].D;
 
 					lea.N = map.wps[i + 1].N + R*sin(approach_angle + alpha);
@@ -238,16 +252,12 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 							fake_child->children.push_back(normal_gchild);
 						}
 					// Check the negative side
-					fake_wp.N = map.wps[i + 1].N + d*sin(approach_angle);
-					fake_wp.E = map.wps[i + 1].E + d*cos(approach_angle);
-					fake_wp.D = map.wps[i + 1].D;
-
 					cpa.N = map.wps[i + 1].N - input_file->turn_radius*cos(approach_angle);
 					cpa.E = map.wps[i + 1].E + input_file->turn_radius*sin(approach_angle);
 					cpa.D = map.wps[i + 1].D;
 
-					cea.N = map.wps[i + 1].N - d*sin(gamma)*cos(approach_angle);
-					cea.E = fake_wp.E + d*cos(approach_angle - gamma);
+					cea.N = fake_wp.N + d*sin(-gamma + approach_angle);
+					cea.E = fake_wp.E + d*cos(-gamma + approach_angle);
 					cea.D = map.wps[i + 1].D;
 
 					lea.N = map.wps[i + 1].N + R*sin(approach_angle - alpha);
@@ -321,13 +331,22 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		double line_Distance;
 		path_smoothed.push_back(all_wps[i][0]);
 
-		//if (i != 0)
-		//{
-		//	i_node = 2;
-		//	j_node = 3;
-		//	path_smoothed.push_back(all_wps[i][1]);
-		//	path_smoothed.push_back(all_wps[i][2]);
-		//}
+		if (i != 0)
+		{
+			path_smoothed.push_back(all_wps[i][1]);
+			i_node++;
+			j_node++;
+			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+			smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
+			available_ds.push_back(line_Distance - distance_in);
+
+			path_smoothed.push_back(all_wps[i][2]);
+			i_node++;
+			j_node++;
+			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+			smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
+			available_ds.push_back(line_Distance - distance_in);
+		}
 
 		while (j_node < all_wps[i].size())
 		{

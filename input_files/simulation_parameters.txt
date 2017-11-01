@@ -11,14 +11,14 @@ ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
 numWps  = 10;			# Number of primary waypoints
-seed	= 123456789;		# Seed the random generators for all of the simulation seeds
+seed	= 12345678;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
 turn_radius = 20;		# Turn radius of the plane to plan for in the path.
 
 
 # General Path Planning Algorithm Settings
-clearance   = 10;		# Minimum distance the algorithm has to stay away from any obstacle
+clearance   = 20;		# Minimum distance the algorithm has to stay away from any obstacle
 iters_limit = 5000;		# This is a maximum iteration limit - so impossible maps don't hang the program
 
 # Map Settings
@@ -33,8 +33,8 @@ minCylHeight = 9.144; 		# 9.144 m = 30 ft.
 maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
 minFlyHeight = 30.48; 		# 23.7744 m = 100 - 22 ft. (positive value)
 maxFlyHeight = 228.6; 		# 221.8944 m = 750 - 22 ft. (positive value)
-waypoint_clearance = 15;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
-nCyli        = 20;		# Number of Cylindrical Obstacles
+waypoint_clearance = 25;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
+nCyli        = 40;		# Number of Cylindrical Obstacles
 
 # Output Files
 file_extension        = .txt;	# This is the file extension that will go on all of the files

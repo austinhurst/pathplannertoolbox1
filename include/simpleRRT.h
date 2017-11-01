@@ -67,6 +67,7 @@ private:
 	vector<node*> root_ptrs;												// Vector of all roots, each element is the start of the tree to reach the next primary waypoint
 	void print_tree(node* ptr, ofstream& file);								// Print the tree in a way that MATLAB can easily graph this tree with plot()
 	node *closest_node;														// This is a variable that is used to find the closest node - if it is in here there are no memory leaks.
+	node *closest_node_gchild;												// This is a variable that is the closest node off of a grandchild tree.
 	bool check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle);	// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
 };
 #endif
