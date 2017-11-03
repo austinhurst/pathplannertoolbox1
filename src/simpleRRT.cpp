@@ -60,6 +60,8 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	// For every Primary Waypoint develop a tree and a find a path
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
 	{
+		if (i == 11)
+			reached_next_wp = false;
 		// Set up some initial things for this waypoint to waypoint tree
 		reached_next_wp = false;							// Flag to see if you have reached the next waypoint
 		root = root_ptrs[i];
