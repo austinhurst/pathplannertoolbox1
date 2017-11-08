@@ -10,7 +10,7 @@
 ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
-numWps  = 10;			# Number of primary waypoints
+numWps  = 5;			# Number of primary waypoints
 seed	= 12345678;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
@@ -34,7 +34,7 @@ maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
 minFlyHeight = 30.48; 		# 23.7744 m = 100 - 22 ft. (positive value)
 maxFlyHeight = 228.6; 		# 221.8944 m = 750 - 22 ft. (positive value)
 waypoint_clearance = 25;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
-nCyli        = 40;		# Number of Cylindrical Obstacles
+nCyli        = 10;		# Number of Cylindrical Obstacles
 
 # Output Files
 file_extension        = .txt;	# This is the file extension that will go on all of the files

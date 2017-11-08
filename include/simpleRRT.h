@@ -17,7 +17,7 @@ struct simpleRRT_input
 	int path_type;				// Path type from the parent, 0 = straight line, 1 = fillet, 2 = dubins
 	simpleRRT_input()			// Struct constructor, pust the default values here.
 	{
-		D = 50;
+		D = 25;
 		uniform2P = false;
 		gaussianD = false;
 		gaussianSTD = 15;
@@ -69,5 +69,7 @@ private:
 	node *closest_node;														// This is a variable that is used to find the closest node - if it is in here there are no memory leaks.
 	node *closest_node_gchild;												// This is a variable that is the closest node off of a grandchild tree.
 	bool check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle);	// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
+	bool check_create_fan(NED_s primary_wp, NED_s coming_from, node* next_root);	// This function checks to see if a fan can be created, and it also creates it.
+	bool check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root);	// Check and create a direct round to straight path.
 };
 #endif
