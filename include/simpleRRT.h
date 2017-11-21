@@ -70,6 +70,6 @@ private:
 	node *closest_node_gchild;												// This is a variable that is the closest node off of a grandchild tree.
 	bool check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle);	// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
 	bool check_create_fan(NED_s primary_wp, NED_s coming_from, node* next_root);	// This function checks to see if a fan can be created, and it also creates it.
-	bool check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root);	// Check and create a direct round to straight path.
+	bool check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root, NED_s* cea_out, double* din, double* anglin);	// Check and create a direct round to straight path.
 };
 #endif

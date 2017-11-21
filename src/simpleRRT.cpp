@@ -17,30 +17,6 @@ simpleRRT::~simpleRRT()
 }
 void simpleRRT::solve_static()								// This function solves for a path in between the waypoinnts (2 Dimensional)
 {	
-	vector<vector<double> > bad_angles;
-	vector<double> temp_bad_angles;
-	temp_bad_angles.push_back(NULL);
-	bad_angles.push_back(temp_bad_angles);
-	// Check a circle around each waypoint
-	double check_radius = input_file->turn_radius*1.5;
-	unsigned int num_angle_checks = input_file->nCyli;								// Just needs to be some number greater than about 8?
-	double small_ball_radius = 3.141592653*check_radius / num_angle_checks;
-	NED_s small_ball;
-	double small_ball_angle = 0;
-	for (unsigned int i = 1; i < map.wps.size()-1; i++)
-	{
-		temp_bad_angles.clear();
-		for (unsigned int j = 0; j < num_angle_checks; j++)
-		{
-			small_ball_angle = j*2.0 * 3.141592653 / num_angle_checks - 3.141592653; // Get angles from -180 to 180
-			small_ball.N = map.wps[i].N + check_radius*sin(small_ball_angle);
-			small_ball.E = map.wps[i].E + check_radius*cos(small_ball_angle);
-			small_ball.D = map.wps[i].D;
-			if (flyZoneCheck(small_ball, small_ball_radius) == false)
-				temp_bad_angles.push_back(small_ball_angle);
-		}
-		bad_angles.push_back(temp_bad_angles);
-	}
 	// Solve to each Primary Waypoint
 	bool reached_next_wp, found_feasible_link;
 	NED_s P;
@@ -73,6 +49,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		double distance_in, fillet_angle;
 		double distance;
 		bool skip_smoother = false;
+		bool direct_shot = false;
 
 		// Check to see if it is possible to go straight to the next path
 		if (alg_input.connect_to_end)
@@ -88,17 +65,21 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 			else
 			{
 				P = map.wps[i + 1];
-				distance = 9999999999999999999999.0; // Some crazy big number to start out with
+				distance = 9999999999999999999999.0; // Some crazy big number to start out with, maybe look into HUGE_VAL or Inf - worried about embedded implementation.
 				double distance_gchild;
 				bool found_clean_path = false;
 				// Check to see if you can make one turn radius and then go to the next waypoint.
-				if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, second2last_post_smoothed, root))
+				NED_s cea;
+				if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, second2last_post_smoothed, root, &cea, &distance_in, &fillet_angle))
 				{
 					found_clean_path = true;
+					direct_shot = true;
 					closest_node = root->children[root->children.size()-1];
 					coming_from = closest_node->NED;
 					reached_next_wp = true;
+					closest_node->available_dist = 0.0;
 					distance = sqrt(pow(root->NED.N - closest_node->NED.N, 2) + pow(root->NED.E - closest_node->NED.E, 2) + pow(root->NED.D - closest_node->NED.D, 2));
+					closest_node->distance = distance;
 				}
 				else
 				{
@@ -116,7 +97,10 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 					coming_from = closest_node->NED;
 					reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance);
 					if (reached_next_wp)
+					{
 						reached_next_wp = check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, &distance_in, &fillet_angle);
+						
+					}
 				}
 			}
 			if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
@@ -173,7 +157,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 					closest_node = find_closest_node(root, P, root, &distance);
 				else
 				{
-					distance = 9999999999999999999999.0; // Some crazy big number to start out with
+					distance = 9999999999999999999999.0; // Some crazy big number to start out with - maybe look into HUGE_VAL or Inf - worried about embedded implementation.
 					double distance_gchild;
 					for (unsigned int j = 0; j < root->children.size(); j++)
 						for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
@@ -253,13 +237,12 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 			}
 			if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
 			{
-				if (check_create_fan(map.wps[i + 1], vpos->NED, root_ptrs[i + 1])== false)
+				if (check_create_fan(map.wps[i + 1], vpos->NED, root_ptrs[i + 1]) == false)
 					reached_next_wp = false;
 			}
 		}
 		// We can go to the next waypoint!
 		// The following code wraps up the algorithm.
-		double pdistance = 0;								// This is a distance that cummulates into the total path distance (from one waypoint to another)
 		node *final_node = new node;
 		final_node->NED = map.wps[i + 1];
 		second2last->children.push_back(final_node);
@@ -274,11 +257,9 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		while (current_node != root)
 		{
 			wpstack.push(current_node);
-			pdistance += current_node->distance;
 			current_node = current_node->parent;
 		}
 		wpstack.push(root);
-		path_distances.push_back(pdistance);
 
 		// Now put all of the waypoints into the all_wps vector
 		vector<NED_s> wps_to_PrimaryWP;
@@ -292,12 +273,13 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 		if (skip_smoother == false)
 		{
 			// Smooth Out the path (Algorithm 11 in the UAV book)
+			// Check somewhere in this function to see if it possible to get a more smooth exit out of waypoints
+
 			cout << "\tSmoothing Path" << endl;
 			vector<NED_s> path_smoothed;
 			vector<double> available_ds;
-			double smooth_distances = 0;
-			unsigned int i_node = 0;
-			unsigned int j_node = 1;
+			unsigned int i_node = 0;	// i_node is which index of the SMOOTHED PATH you are on.
+			unsigned int j_node = 1;	// j_node is which index of the ROUGH PATH you are on.
 			double line_Distance;
 			path_smoothed.push_back(all_wps[i][0]);
 
@@ -307,17 +289,14 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 				i_node++;
 				j_node++;
 				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-				smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
 				available_ds.push_back(line_Distance - distance_in);
 
 				path_smoothed.push_back(all_wps[i][2]);
 				i_node++;
 				j_node++;
 				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-				smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
 				available_ds.push_back(line_Distance - distance_in);
 			}
-
 			while (j_node < all_wps[i].size())
 			{
 				bool bad_path_flag = false;
@@ -327,21 +306,62 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 					bad_path_flag = true;
 				if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], &distance_in, &fillet_angle) == false)
 					bad_path_flag = true;
-				if (bad_path_flag)
+				if (i != 0 && alg_input.path_type == 1 && j_node == all_wps[i].size() - 3 && bad_path_flag == false)
+				{
+					double temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 2].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 2].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 2].D, 2)) - distance_in;
+					if (check_fillet(path_smoothed[i_node], all_wps[i][j_node + 1], all_wps[i][j_node + 2], temp_available_ds, &distance_in, &fillet_angle) == false)
+					{
+						bad_path_flag = true;
+						// If this is true then really you should check the next one back.
+						// Now we are working backwards to find a good path.
+						while (bad_path_flag)
+						{
+							j_node--;
+							temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 1].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 1].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 1].D, 2)) - distance_in;
+							if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance))
+								if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, &distance_in, &fillet_angle))
+									bad_path_flag = false;
+						}
+						bad_path_flag = true;
+					}
+				}
+				if (bad_path_flag) // Try adding the second to last node every time. Avoids problems with smoothing out the last fillet.
 				{
 					path_smoothed.push_back(all_wps[i][j_node]);
 					i_node++;
 					line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-					smooth_distances += line_Distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
 					available_ds.push_back(line_Distance - distance_in);
 				}
 				j_node++;
 			}
-			smooth_distances += sqrt(pow(map.wps[i + 1].N - path_smoothed[i_node].N, 2) + pow(map.wps[i + 1].E - path_smoothed[i_node].E, 2) + pow(map.wps[i + 1].D - path_smoothed[i_node].D, 2));
-			path_distances[i] = smooth_distances;
+			// Check to see if the fan can be created better
+			// If so, change path_smoothed[1] and delete path_smoothed[2]
+			NED_s cea;
+			if (i > 0 && i <= map.wps.size() - 1 && direct_shot == false && path_smoothed.size() >= 4 && check_direct_fan(path_smoothed[3], root->NED, all_wps[i - 1][all_wps[i - 1].size() - 1], root, &cea, &distance_in, &fillet_angle))
+			{
+				if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], clearance))
+				{
+					path_smoothed[1] = root->children[root->children.size() - 1]->NED;
+					path_smoothed.erase(path_smoothed.begin() + 2);
+					cout << "SMOOTHED THE FAN" << endl;
+				}
+			}
+
 			all_wps[i].swap(path_smoothed);
 			second2last_post_smoothed = all_wps[i][all_wps[i].size() - 1];
 		}
+		else
+			all_wps[i].erase(all_wps[i].begin() + all_wps[i].size() - 1);
+
+		// Determine the true path distance. (This kind of covers up some mistakes above...)
+		double final_distance = 0;
+		for (unsigned j = 0; j < all_wps[i].size() - 1; j++)
+		{
+			final_distance += sqrt(pow(all_wps[i][j].N - all_wps[i][j+1].N, 2) + pow(all_wps[i][j].E - all_wps[i][j + 1].E, 2) + pow(all_wps[i][j].D - all_wps[i][j + 1].D, 2));
+		}
+		final_distance += sqrt(pow(all_wps[i][all_wps[i].size() - 1].N - map.wps[i + 1].N, 2) + pow(all_wps[i][all_wps[i].size() - 1].E - map.wps[i + 1].E, 2) + pow(all_wps[i][all_wps[i].size() - 1].D - map.wps[i + 1].D, 2));
+		path_distances.push_back(final_distance);
+		cout << "PATH DISTANCE: " << path_distances[i] << endl;
 	}
 	// Add the final waypoint to the waypoint list.
 	all_wps[map.wps.size() - 2].push_back(map.wps[map.wps.size() - 1]);
@@ -351,11 +371,6 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	// We still need to do some improvements.
 
 	// (all ready complete) get the algorithm to connect point to point
-	// Second Task. Kinematically possible route.
-	//		cleaning up unneseccary waypoints (mostly done)
-	//		which type of path? Straight, fillet, dubins
-	//		possibly add some waypoints around the primary waypoints to help "guide" the algorithms into and out of waypoints
-	//		make sure it won't collide anywhere
 	// Third task get it to work in 3 dimensions
 	//		Climb and descend rates
 	//		look over obstacles in efficient way
@@ -365,17 +380,10 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	//		Possibly get the algorithm to compute multiple paths to get the optimal solution.
 	//**********************************************************************************************
 }
-bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root)
+bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root, NED_s* cea_out, double* din, double* anglin)
 {
 	bool found_at_least_1_good_path = false;
-	// Make sure that it is possible to go to the next waypoint
-
-	//double alpha = 3.141592653 / 4.0;			// Start with 45.0 degrees
 	double R = sqrt(pow(second_wp.N - primary_wp.N,2) + pow(second_wp.E - primary_wp.E,2) + pow(second_wp.D - primary_wp.D,2));
-
-	//int num_circle_trials = 10;				// Will try num_circle_trials on one side and num_circle_trials on the other side.
-	//double dalpha = (3.141592653 - alpha) / num_circle_trials;
-
 
 	double approach_angle = atan2(primary_wp.N - coming_from.N, primary_wp.E - coming_from.E) + 3.141592653;
 	double approach_angleDEGREES = approach_angle*180.0 / 3.141592653;
@@ -386,7 +394,11 @@ bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming
 	double leave_angle = atan2(second_wp.N - primary_wp.N, second_wp.E - primary_wp.E);
 	double leave_angleDEGREES = leave_angle*180.0 / 3.141592653;
 	double alpha = atan2(second_wp.N - primary_wp.N, second_wp.E - primary_wp.E) - approach_angle;
-	double alphaDEGREES = alpha*180.0 / 3.141592653;
+	//double alphaDEGREES = alpha*180.0 / 3.141592653;
+	while (alpha < -3.141592653)
+		alpha = alpha + 2 * 3.141592653;
+	while (alpha > 3.141592653)
+		alpha = alpha - 2 * 3.141592653;
 
 	bool positive_angle = true;
 	if (alpha < 0.0)
@@ -394,7 +406,10 @@ bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming
 		positive_angle = false;
 		alpha = -1.0*alpha;
 	}
-	if (alpha < 3.141592653/4.0  || (alpha > 7.0*3.141592653 / 4.0 && alpha < 9.0*3.141592653 / 4.0))
+	if (2.0*input_file->turn_radius / R > 1.0 || 2.0*input_file->turn_radius / R < -1.0)
+		return false;
+	double minAngle = asin(2.0*input_file->turn_radius / R) + 8*3.141592653/180.0;
+	if (alpha < minAngle || (alpha > 3.141592653- minAngle && alpha < 3.141592653 + minAngle))
 		return false;
 
 	beta = 3.141592653 / 2 - alpha;
@@ -432,20 +447,13 @@ bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming
 				// Looks like things are going to work out for this maneuver!
 				found_at_least_1_good_path = true;
 				node *fake_child = new node;
-				node *normal_gchild = new node;
+				//node *normal_gchild = new node;
 				fake_child->NED = fake_wp;
 				fake_child->available_dist = 0;
 				fake_child->parent = next_root;
 				fake_child->distance = 2.0*zeta*input_file->turn_radius;
 				fake_child->path_type = 1;
 				next_root->children.push_back(fake_child);
-
-				normal_gchild->NED = lea;
-				normal_gchild->available_dist = sqrt(R*(R - input_file->turn_radius*sin(lambda) / sin(beta)));
-				normal_gchild->parent = fake_child;
-				normal_gchild->distance = normal_gchild->available_dist;
-				normal_gchild->path_type = 1;
-				fake_child->children.push_back(normal_gchild);
 			}
 	}
 	else // Check the negative side
@@ -475,15 +483,11 @@ bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming
 				fake_child->distance = 2.0*zeta*input_file->turn_radius;
 				fake_child->path_type = 1;
 				next_root->children.push_back(fake_child);
-
-				normal_gchild->NED = lea;
-				normal_gchild->available_dist = sqrt(R*(R - input_file->turn_radius*sin(lambda) / sin(beta)));
-				normal_gchild->parent = fake_child;
-				normal_gchild->distance = normal_gchild->available_dist;
-				normal_gchild->path_type = 1;
-				fake_child->children.push_back(normal_gchild);
 			}
 	}
+	*cea_out = cea;
+	*din = sqrt(pow(fake_wp.N - cea.N, 2) + pow(fake_wp.E - cea.E, 2) + pow(fake_wp.D - cea.D, 2));
+	*anglin = 2.0*zeta;
 	return found_at_least_1_good_path;
 }
 bool simpleRRT::check_create_fan(NED_s primary_wp, NED_s coming_from, node* next_root)
