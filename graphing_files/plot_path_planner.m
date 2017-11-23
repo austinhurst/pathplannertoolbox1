@@ -3,4 +3,4 @@
 
 clear all; clc; close all;
 
-plot_sim_2d();
+plot_sim_3d();

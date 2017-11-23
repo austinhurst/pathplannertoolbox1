@@ -23,6 +23,8 @@ public:
 
 	// Plane settings
 	double turn_radius;
+	double climb_angle;
+	double descend_angle;
 
 	// General Path Planning Algorithm Settings
 	double clearance;

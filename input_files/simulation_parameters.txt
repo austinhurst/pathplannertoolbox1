@@ -15,6 +15,8 @@ seed	= 12345678;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
 turn_radius = 20;		# Turn radius of the plane to plan for in the path.
+climb_angle = 20;		# Angle in degrees the plane can ascend
+descend_angle = 15;		# Angle in degrees the plane can descend
 
 
 # General Path Planning Algorithm Settings
@@ -26,7 +28,7 @@ boundaries_in_file = ./input_files/competition_boundaries.txt;
 latitude0    = N38-09-01.50;	# 0 point for the latitude. Please follow format Nxx-xx-xx.xx
 longitude0   = W076-25-29.70;	# 0 point for the longitude. Please follow format Wxxx-xx-xx.xx
 height0	     = 6.7056;		# 0 height at the runway, 22 feet.
-is3D 	     = false;		# false = 2 dimensions, true = 3 dimensions
+is3D 	     = true;		# false = 2 dimensions, true = 3 dimensions
 minCylRadius = 9.144; 		# 9.144 m = 30 ft.
 maxCylRadius = 91.44; 		# 91.44 m = 300 ft.
 minCylHeight = 9.144; 		# 9.144 m = 30 ft.
