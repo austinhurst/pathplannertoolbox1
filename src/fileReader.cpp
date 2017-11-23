@@ -44,6 +44,10 @@ fileReader::fileReader(string input_file)
 				seed = stoul(variable_value);
 			else if (variable_name == "turn_radius")
 				turn_radius = stod(variable_value);
+			else if (variable_name == "climb_angle")
+				climb_angle = stod(variable_value);
+			else if (variable_name == "descend_angle")
+				descend_angle = stod(variable_value);
 			else if (variable_name == "clearance")
 				clearance = stod(variable_value);
 			else if (variable_name == "iters_limit")

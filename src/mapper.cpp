@@ -296,6 +296,15 @@ NED_s mapper::GPS2NED_(double phi, double lambda, double h) // Supposedly this o
 }
 NED_s mapper::GPS2NED(double phi, double lambda, double h)
 {
+	// send in phi (latitude) as an angle in degrees ex.38.14626
+	// send in lambda (longitude) as an angle in degrees ex. 76.42816
+	// both of those are converted into radians
+	// send in h as a altitude (mean sea level) provo = about 1500, maryland = 6.7056
+
+	// rLam is the reference longitude (in RADIANS)
+	// rPhi is the reference latitude (in RADIANS)
+	// The reference angles define where the 0,0,0 point is in the local NED coordinates
+
 	// CONSTANTS
 	double piD180 = 3.1415926535897932 / 180.0;
 	double a = 6378137.0;						// length of Earth’s semi-major axis in meters
