@@ -6,7 +6,7 @@ function [] = plotCylinders3d(filename, fnum)
     nps = 50;
     for i = 1:length(cyls(:,1))
         [Nc, Ec] = circle(cyls(i,1), cyls(i,2), cyls(i,3));
-        patch(Ec, Nc,zeros(size(Nc)),'r','LineStyle','-','FaceAlpha',falpha);
+        patch(Ec, Nc,ones(size(Nc))+.1,'r','LineStyle','-','FaceAlpha',falpha);
         patch(Ec, Nc,ones(size(Nc))*cyls(i,4),'r','LineStyle','-','FaceAlpha',falpha);
         [X,Y,Z] = cylinder(ones(1,2),31);
         X = X*cyls(i,3) + cyls(i,2);

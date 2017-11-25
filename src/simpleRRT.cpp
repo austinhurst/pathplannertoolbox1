@@ -317,7 +317,6 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 	node* root = root_ptrs[i];
 	double distance;
 
-
 	// Check to see if it is possible to go straight to the next path
 	cout << "\tChecking direct Connect" << endl;
 	NED_s coming_from;
@@ -327,13 +326,7 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 		reached_next_wp = flyZoneCheck(root->NED, map.wps[i + 1], clearance);
 		closest_node = root;
 		if (reached_next_wp)
-		{
-			double land_distance = sqrt(pow(root->NED.N - map.wps[i + 1].N, 2) + pow(root->NED.E - map.wps[i + 1].E, 2));
-			double height_change = map.wps[i + 1].D - root->NED.D;
-			double slope = atan2(-1.0*height_change, land_distance)*180.0 / 3.141592653;
-			if (slope < -1.0*input_file->descend_angle || slope > input_file->climb_angle)
-				reached_next_wp = false;
-		}
+			reached_next_wp = check_slope(root->NED, map.wps[i + 1]);
 	}
 	else
 	{
@@ -345,14 +338,17 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 		NED_s cea;
 		if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, *second2last_post_smoothed, root, &cea, distance_in, fillet_angle))
 		{
-			found_clean_path = true;
-			*direct_shot = true;
-			closest_node = root->children[root->children.size() - 1];
-			coming_from = closest_node->NED;
-			reached_next_wp = true;
-			closest_node->available_dist = 0.0;
-			distance = sqrt(pow(root->NED.N - closest_node->NED.N, 2) + pow(root->NED.E - closest_node->NED.E, 2) + pow(root->NED.D - closest_node->NED.D, 2));
-			closest_node->distance = distance;
+			if (check_slope(root->children[root->children.size() - 1]->NED, map.wps[i + 1]))
+			{
+				closest_node = root->children[root->children.size() - 1];
+				found_clean_path = true;
+				*direct_shot = true;
+				coming_from = closest_node->NED;
+				reached_next_wp = true;
+				closest_node->available_dist = 0.0;
+				distance = sqrt(pow(root->NED.N - closest_node->NED.N, 2) + pow(root->NED.E - closest_node->NED.E, 2) + pow(root->NED.D - closest_node->NED.D, 2));
+				closest_node->distance = distance;
+			}
 		}
 		else
 		{
@@ -368,12 +364,12 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 					}
 				}
 			coming_from = closest_node->NED;
-			reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance);
+			reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance) && check_slope(coming_from, map.wps[i + 1]);
 			if (reached_next_wp)
 				reached_next_wp = check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, distance_in, fillet_angle);
 		}
 	}
-	if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
+	if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to fly out of the primary waypoints.
 		if (check_create_fan(map.wps[i + 1], coming_from, root_ptrs[i + 1]) == false)
 			reached_next_wp = false;
 	return reached_next_wp;
@@ -419,7 +415,6 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 			distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
 
 			// Find the closest node to the point P, if you are not trying to get to waypoint 1 (which is the second waypoint), then don't accept the root or the children of the root.
-
 			if (i == 0)
 				closest_node = find_closest_node(root, P, root, &distance);
 			else
@@ -438,7 +433,6 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 						}
 					}
 			}
-
 			double theta = atan2(P.N - closest_node->NED.N, P.E - closest_node->NED.E);
 
 			// Go a distance D along the line from closest node to P to find the next node position vpos
@@ -448,7 +442,13 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 				D = rg.randNor(distance, alg_input.gaussianSTD);
 			vpos->NED.N = (closest_node->NED.N) + sin(theta)*D;
 			vpos->NED.E = (closest_node->NED.E) + cos(theta)*D;
-			vpos->NED.D = map.wps[i + 1].D;
+
+			if (map.wps[i + 1].D > closest_node->NED.D - tan(input_file->climb_angle)*D && map.wps[i + 1].D < closest_node->NED.D + tan(input_file->descend_angle)*D)
+				vpos->NED.D = map.wps[i + 1].D;
+			else if (map.wps[i + 1].D > closest_node->NED.D)
+				vpos->NED.D = closest_node->NED.D + tan(input_file->descend_angle)*D;
+			else
+				vpos->NED.D = closest_node->NED.D - tan(input_file->descend_angle)*D;
 
 			// If this path is good move on.
 			// Check to see if the straight line path is good.
@@ -488,14 +488,14 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 		}
 
 		// Check to see if it is possible to go from this newly added node to the next primary waypoint
-		if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+		if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(vpos->NED, map.wps[i + 1]))
 		{
 			reached_next_wp = true;								// Set the flag
 			second2last = vpos;
 			if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
 				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle);
 		}								// Set the flag
-		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(vpos->NED, map.wps[i + 1]))
 		{
 			reached_next_wp = true;								// Set the flag
 			second2last = vpos;
@@ -541,6 +541,7 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in, double* fillet_angle, NED_s* second2last_post_smoothed, bool direct_shot)
 {
 	node* root = root_ptrs[i];
+	//skip_smoother = true; // Uncommmenting this line turns the smoother off. It can be helpful for debugging.
 
 	// Smooth Out the path (Algorithm 11 in the UAV book)
 	// Check somewhere in this function to see if it possible to get a more smooth exit out of waypoints
@@ -571,9 +572,9 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 		while (j_node < all_wps[i].size())
 		{
 			bool bad_path_flag = false;
-			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false || (check_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false)))
 				bad_path_flag = true;
-			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false || (check_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false)))
 				bad_path_flag = true;
 			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle) == false)
 				bad_path_flag = true;
@@ -623,6 +624,13 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 	}
 	else
 		all_wps[i].erase(all_wps[i].begin() + all_wps[i].size() - 1);
+}
+bool simpleRRT::check_slope(NED_s beg, NED_s en)
+{
+	double slope = atan2(-1.0*(en.D - beg.D), sqrt(pow(beg.N - en.N, 2) + pow(beg.E - en.E, 2)));
+	if (slope < -1.0*input_file->descend_angle || slope > input_file->climb_angle)
+		return false;
+	return true;
 }
 void simpleRRT::calc_path_distance(unsigned int i)
 {

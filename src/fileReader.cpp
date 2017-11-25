@@ -103,6 +103,8 @@ fileReader::fileReader(string input_file)
 	primary_wps_out_file = primary_wps_out_file   + file_extension;
 	path_file = path_file						  + file_extension;
 	special_pfile = special_pfile				  + file_extension;
+	climb_angle = climb_angle*3.141592653 / 180.0;
+	descend_angle = descend_angle*3.141592653 / 180.0;
 }
 fileReader::~fileReader()
 {
