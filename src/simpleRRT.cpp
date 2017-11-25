@@ -17,368 +17,23 @@ simpleRRT::~simpleRRT()
 }
 void simpleRRT::solve_static()								// This function solves for a path in between the waypoinnts (2 Dimensional)
 {	
-	// Solve to each Primary Waypoint
-	bool reached_next_wp, found_feasible_link;
-	NED_s P;
-
-	// Set up all of the roots
-	for (unsigned int i = 0; i < map.wps.size() - 1; i++)
-	{
-		node *root_in = new node;								// Starting position of the tree (and the waypoint beginning)
-		root_in->NED = map.wps[i];
-		root_in->NED.D = 0;									// 0 for simple 2d
-		root_in->parent = NULL;								// No parent
-		root_in->distance = 0.0;								// 0 distance.
-		root_in->available_dist = 0.0;							// No available distance, (No parent assumption)
-		root_in->path_type = 0;								// straight lines for now at the primary waypoints.
-		root_ptrs.push_back(root_in);
-	}
-	node *root;
-	NED_s second2last_post_smoothed;
-	// For every Primary Waypoint develop a tree and a find a path
+	initialize_tree();
+	NED_s second2last_post_smoothed = root_ptrs[0]->NED;
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
 	{
 		cout << "MAIN LOOP: " << i << endl;
-		// Set up some initial things for this waypoint to waypoint tree
-		reached_next_wp = false;							// Flag to see if you have reached the next waypoint
-		root = root_ptrs[i];
-		node *second2last = root;							// This will be set as the second to last waypoint
-		double theta;
-		clearance = input_file->clearance;
-		double clearanceP = clearance;
+		node *second2last = root_ptrs[i];					// This will be set as the second to last waypoint
 		double distance_in, fillet_angle;
-		double distance;
-		bool skip_smoother = false;
 		bool direct_shot = false;
-
-		// Check to see if it is possible to go straight to the next path
-		if (alg_input.connect_to_end)
-		{
-			cout << "\tChecking direct Connect"<< endl;
-			NED_s coming_from;
-			if (i == 0)
-			{
-				coming_from = map.wps[i];
-				reached_next_wp = flyZoneCheck(root->NED, map.wps[i + 1], clearance);
-				closest_node = root;
-			}
-			else
-			{
-				P = map.wps[i + 1];
-				distance = 9999999999999999999999.0; // Some crazy big number to start out with, maybe look into HUGE_VAL or Inf - worried about embedded implementation.
-				double distance_gchild;
-				bool found_clean_path = false;
-				// Check to see if you can make one turn radius and then go to the next waypoint.
-				NED_s cea;
-				if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, second2last_post_smoothed, root, &cea, &distance_in, &fillet_angle))
-				{
-					found_clean_path = true;
-					direct_shot = true;
-					closest_node = root->children[root->children.size()-1];
-					coming_from = closest_node->NED;
-					reached_next_wp = true;
-					closest_node->available_dist = 0.0;
-					distance = sqrt(pow(root->NED.N - closest_node->NED.N, 2) + pow(root->NED.E - closest_node->NED.E, 2) + pow(root->NED.D - closest_node->NED.D, 2));
-					closest_node->distance = distance;
-				}
-				else
-				{
-					for (unsigned int j = 0; j < root->children.size(); j++)
-						for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
-						{
-							distance_gchild = sqrt(pow(P.N - root->children[j]->children[k]->NED.N, 2) + pow(P.E - root->children[j]->children[k]->NED.E, 2) + pow(P.D - root->children[j]->children[k]->NED.D, 2));
-							closest_node_gchild = find_closest_node(root->children[j]->children[k], P, root->children[j]->children[k], &distance_gchild);
-							if (distance_gchild < distance)
-							{
-								closest_node = closest_node_gchild;
-								distance = distance_gchild;
-							}
-						}
-					coming_from = closest_node->NED;
-					reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance);
-					if (reached_next_wp)
-					{
-						reached_next_wp = check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, &distance_in, &fillet_angle);
-						
-					}
-				}
-			}
-			if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
-			{
-				if (check_create_fan(map.wps[i + 1], coming_from, root_ptrs[i + 1]) == false)
-					reached_next_wp = false;
-			}
-		}
-		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - root->NED.N, 2) + pow(map.wps[i + 1].E - root->NED.E, 2) + pow(map.wps[i + 1].D - root->NED.D, 2)) < D && flyZoneCheck(root->NED, map.wps[i + 1], clearance))
-		{
-			reached_next_wp = true;								// Set the flag
-		}
-		skip_smoother = reached_next_wp;
-		if (reached_next_wp)
-		{
+		bool direct_connect = direct_connection(i, &second2last_post_smoothed, &distance_in, &fillet_angle, &direct_shot);		//******* IMPORTANT
+		if (direct_connect)
 			second2last = closest_node;
-		}
-
-		// Keep adding to the tree until you have found a solution
-		double added_nodes = 0.0;								// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
-		cout << "\tDeveloping branches" << endl;
-		while (reached_next_wp == false)
-		{
-			node *vpos = new node;								// vpos is the next node to add to the tree
-			found_feasible_link = false;
-
-			// Once you found a node to add to the tree that doesn't intersect with an obstacle, add it to the tree
-			unsigned int p_count(0);
-			while (found_feasible_link == false)
-			{
-				// Generate random P until it is within boundaries and not on an obstacle.
-				P.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
-				P.E = rg.randLin()*(maxEast - minEast) + minEast;
-				P.D = 0; // Simple... 2D
-				while (flyZoneCheck(P, clearanceP) == false)
-				{
-					P.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
-					P.E = rg.randLin()*(maxEast - minEast) + minEast;
-					P.D = 0; // Simple... 2D
-				}
-				p_count++;
-				if (p_count == floor(iters_limit / 2.0) || p_count == floor(iters_limit*3.0 / 4.0) || p_count == floor(iters_limit*7.0 / 8.0))
-				{
-					clearanceP = clearanceP / 6.0;
-					cout << "DECREASING THE CLEARANCE LEVEL" << endl;
-					clearance = clearance / 2.0;
-					cout << "CLEARANCE:\t" << clearance << endl;
-				}
-				distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
-
-				// Find the closest node to the point P, if you are not trying to get to waypoint 1 (which is the second waypoint), then don't accept the root or the children of the root.
-
-				if (i == 0)
-					closest_node = find_closest_node(root, P, root, &distance);
-				else
-				{
-					distance = 9999999999999999999999.0; // Some crazy big number to start out with - maybe look into HUGE_VAL or Inf - worried about embedded implementation.
-					double distance_gchild;
-					for (unsigned int j = 0; j < root->children.size(); j++)
-						for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
-						{
-							distance_gchild = sqrt(pow(P.N - root->children[j]->children[k]->NED.N, 2) + pow(P.E - root->children[j]->children[k]->NED.E, 2) + pow(P.D - root->children[j]->children[k]->NED.D, 2));
-							closest_node_gchild = find_closest_node(root->children[j]->children[k], P, root->children[j]->children[k], &distance_gchild);
-							if (distance_gchild < distance)
-							{
-								closest_node = closest_node_gchild;
-								distance = distance_gchild;
-							}
-						}
-				}
-
-				theta = atan2(P.N - closest_node->NED.N, P.E - closest_node->NED.E);
-
-				// Go a distance D along the line from closest node to P to find the next node position vpos
-				if (alg_input.uniform2P)
-					D = rg.randLin()*distance;
-				else if (alg_input.gaussianD)
-					D = rg.randNor(distance, alg_input.gaussianSTD);
-				vpos->NED.N = (closest_node->NED.N) + sin(theta)*D;
-				vpos->NED.E = (closest_node->NED.E) + cos(theta)*D;
-				vpos->NED.D = 0; // Simple... 2D
-
-				// If this path is good move on.
-				// Check to see if the straight line path is good.
-				if (flyZoneCheck(closest_node->NED, vpos->NED, clearance))
-				{
-					found_feasible_link = true;
-					vpos->parent = closest_node;
-					if (alg_input.path_type == 1 && root != vpos->parent)								// If the path type is fillets, check to see if the fillet is possible.
-						found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED, closest_node->available_dist, &distance_in, &fillet_angle);
-				}
-			}
-			// add the new node to the tree
-			closest_node->children.push_back(vpos);
-			vpos->distance = sqrt(pow(closest_node->NED.N - vpos->NED.N, 2) + pow(closest_node->NED.E - vpos->NED.E, 2) + pow(closest_node->NED.D - vpos->NED.D, 2));
-			if (alg_input.path_type == 1 && vpos->parent != root)
-			{
-				// Adjust the vpos->distance to account for the turning radius ( a little bit smaller.)
-				vpos->available_dist = vpos->distance - distance_in;
-				vpos->distance = vpos->distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
-			}
-			else
-				vpos->available_dist = vpos->distance;
-			
-			// Make provisions so that the algorithm doesn't hang
-			added_nodes++;
-			if (added_nodes == floor(iters_limit/2.0) || added_nodes == floor(iters_limit*3.0/4.0) || added_nodes == floor(iters_limit*7.0 / 8.0))
-			{
-				cout << "DECREASING THE CLEARANCE LEVEL" << endl;
-				clearance = clearance / 2.0;
-				cout << "CLEARANCE:\t" << clearance << endl;
-			}
-			if (added_nodes >= iters_limit)
-			{
-				cout << "WARNING -- ALGORITHM FAILED TO CONVERGE\nRESULTS WILL VIOLATE AN OBSTACLE" << endl;
-				reached_next_wp = true;
-				second2last = vpos;
-			}
-
-			// Check to see if it is possible to go from this newly added node to the next primary waypoint
-			if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
-			{
-				reached_next_wp = true;								// Set the flag
-				second2last = vpos;
-				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
-					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
-			}								// Set the flag
-			if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
-			{
-				reached_next_wp = true;								// Set the flag
-				second2last = vpos;
-				if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
-					reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, &distance_in, &fillet_angle);
-			}
-			if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
-			{
-				if (check_create_fan(map.wps[i + 1], vpos->NED, root_ptrs[i + 1]) == false)
-					reached_next_wp = false;
-			}
-		}
-		// We can go to the next waypoint!
-		// The following code wraps up the algorithm.
-		node *final_node = new node;
-		final_node->NED = map.wps[i + 1];
-		second2last->children.push_back(final_node);
-		second2last_post_smoothed = second2last->NED;
-		final_node->parent = second2last;
-		final_node->distance = sqrt(pow(final_node->NED.N - second2last->NED.N, 2) + pow(final_node->NED.E - second2last->NED.E, 2) + pow(final_node->NED.D - second2last->NED.D, 2));
-		if (alg_input.path_type == 1 && final_node->parent != root)
-			final_node->distance = final_node->distance - 2.0*distance_in + fillet_angle*input_file->turn_radius;
-		// populate all wps by working back up the tree
-		stack<node*> wpstack;
-		node *current_node = final_node;
-		while (current_node != root)
-		{
-			wpstack.push(current_node);
-			current_node = current_node->parent;
-		}
-		wpstack.push(root);
-
-		// Now put all of the waypoints into the all_wps vector
-		vector<NED_s> wps_to_PrimaryWP;
-		while (!wpstack.empty())
-		{
-			wps_to_PrimaryWP.push_back(wpstack.top()->NED);
-			wpstack.pop();
-		}
-		all_wps.push_back(wps_to_PrimaryWP);
-		wps_to_PrimaryWP.clear();
-		if (skip_smoother == false)
-		{
-			// Smooth Out the path (Algorithm 11 in the UAV book)
-			// Check somewhere in this function to see if it possible to get a more smooth exit out of waypoints
-
-			cout << "\tSmoothing Path" << endl;
-			vector<NED_s> path_smoothed;
-			vector<double> available_ds;
-			unsigned int i_node = 0;	// i_node is which index of the SMOOTHED PATH you are on.
-			unsigned int j_node = 1;	// j_node is which index of the ROUGH PATH you are on.
-			double line_Distance;
-			path_smoothed.push_back(all_wps[i][0]);
-
-			if (i != 0)
-			{
-				path_smoothed.push_back(all_wps[i][1]);
-				i_node++;
-				j_node++;
-				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-				available_ds.push_back(line_Distance - distance_in);
-
-				path_smoothed.push_back(all_wps[i][2]);
-				i_node++;
-				j_node++;
-				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-				available_ds.push_back(line_Distance - distance_in);
-			}
-			while (j_node < all_wps[i].size())
-			{
-				bool bad_path_flag = false;
-				if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
-					bad_path_flag = true;
-				else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
-					bad_path_flag = true;
-				if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], &distance_in, &fillet_angle) == false)
-					bad_path_flag = true;
-				if (i != 0 && alg_input.path_type == 1 && j_node == all_wps[i].size() - 3 && bad_path_flag == false)
-				{
-					double temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 2].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 2].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 2].D, 2)) - distance_in;
-					if (check_fillet(path_smoothed[i_node], all_wps[i][j_node + 1], all_wps[i][j_node + 2], temp_available_ds, &distance_in, &fillet_angle) == false)
-					{
-						bad_path_flag = true;
-						// If this is true then really you should check the next one back.
-						// Now we are working backwards to find a good path.
-						while (bad_path_flag)
-						{
-							j_node--;
-							temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 1].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 1].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 1].D, 2)) - distance_in;
-							if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance))
-								if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, &distance_in, &fillet_angle))
-									bad_path_flag = false;
-						}
-						bad_path_flag = true;
-					}
-				}
-				if (bad_path_flag) // Try adding the second to last node every time. Avoids problems with smoothing out the last fillet.
-				{
-					path_smoothed.push_back(all_wps[i][j_node]);
-					i_node++;
-					line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
-					available_ds.push_back(line_Distance - distance_in);
-				}
-				j_node++;
-			}
-			// Check to see if the fan can be created better
-			// If so, change path_smoothed[1] and delete path_smoothed[2]
-			NED_s cea;
-			if (i > 0 && i <= map.wps.size() - 1 && direct_shot == false && path_smoothed.size() >= 4 && check_direct_fan(path_smoothed[3], root->NED, all_wps[i - 1][all_wps[i - 1].size() - 1], root, &cea, &distance_in, &fillet_angle))
-			{
-				if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], clearance))
-				{
-					path_smoothed[1] = root->children[root->children.size() - 1]->NED;
-					path_smoothed.erase(path_smoothed.begin() + 2);
-					cout << "SMOOTHED THE FAN" << endl;
-				}
-			}
-
-			all_wps[i].swap(path_smoothed);
-			second2last_post_smoothed = all_wps[i][all_wps[i].size() - 1];
-		}
-		else
-			all_wps[i].erase(all_wps[i].begin() + all_wps[i].size() - 1);
-
-		// Determine the true path distance. (This kind of covers up some mistakes above...)
-		double final_distance = 0;
-		for (unsigned j = 0; j < all_wps[i].size() - 1; j++)
-		{
-			final_distance += sqrt(pow(all_wps[i][j].N - all_wps[i][j+1].N, 2) + pow(all_wps[i][j].E - all_wps[i][j + 1].E, 2) + pow(all_wps[i][j].D - all_wps[i][j + 1].D, 2));
-		}
-		final_distance += sqrt(pow(all_wps[i][all_wps[i].size() - 1].N - map.wps[i + 1].N, 2) + pow(all_wps[i][all_wps[i].size() - 1].E - map.wps[i + 1].E, 2) + pow(all_wps[i][all_wps[i].size() - 1].D - map.wps[i + 1].D, 2));
-		path_distances.push_back(final_distance);
-		cout << "PATH DISTANCE: " << path_distances[i] << endl;
+		develop_tree(i, direct_connect,second2last,&second2last_post_smoothed,&distance_in,&fillet_angle);						//******* IMPORTANT
+		smoother(direct_connect, i, &distance_in, &fillet_angle, &second2last_post_smoothed, direct_shot);						//******* IMPORTANT
+		calc_path_distance(i);
 	}
-	// Add the final waypoint to the waypoint list.
-	all_wps[map.wps.size() - 2].push_back(map.wps[map.wps.size() - 1]);
-	compute_performance();									// Do this after you finish the algorithm so that we can get the right performance values.
-
-	//*********************************************************************************************
-	// We still need to do some improvements.
-
-	// (all ready complete) get the algorithm to connect point to point
-	// Third task get it to work in 3 dimensions
-	//		Climb and descend rates
-	//		look over obstacles in efficient way
-	// Fourth Task
-	//		Get all of the above to work with moving targets (maybe not until december...)
-	// Refinement stage
-	//		Possibly get the algorithm to compute multiple paths to get the optimal solution.
-	//**********************************************************************************************
+	all_wps[map.wps.size() - 2].push_back(map.wps[map.wps.size() - 1]);	// Add the final waypoint to the waypoint list.
+	compute_performance();
 }
 bool simpleRRT::check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root, NED_s* cea_out, double* din, double* anglin)
 {
@@ -609,11 +264,11 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, 
 		double theta = atan2(nex.N - mid.N, nex.E - mid.E);
 		pe.N = (mid.N) + sin(theta)*distance_in;
 		pe.E = (mid.E) + cos(theta)*distance_in;
-		pe.D = 0;	// 2D, this will need to be fixed once in 3d
+		pe.D = mid.D;
 		double gamma = atan2(par.N - mid.N, par.E - mid.E);
 		ps.N = (mid.N) + sin(gamma)*distance_in;
 		ps.E = (mid.E) + cos(gamma)*distance_in;
-		ps.D = 0;	// 2D, this will need to be fixed once in 3d
+		ps.D = mid.D;
 		// Find out whether it is going to the right (cw) or going to the left (ccw)
 		// Use the cross product to see if it is cw or ccw
 		bool ccw;
@@ -639,6 +294,347 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, 
 	*din = distance_in;
 	*cangle = 2.0*atan(distance_in / turn_radius);
 	return found_feasible_link;
+}
+void simpleRRT::initialize_tree()
+{
+	// Set up all of the roots
+	for (unsigned int i = 0; i < map.wps.size() - 1; i++)
+	{
+		node *root_in = new node;							// Starting position of the tree (and the waypoint beginning)
+		root_in->NED = map.wps[i];
+		root_in->parent = NULL;								// No parent
+		root_in->distance = 0.0;							// 0 distance.
+		root_in->available_dist = 0.0;						// No available distance, (No parent assumption)
+		root_in->path_type = 0;								// straight lines for now at the primary waypoints.
+		root_ptrs.push_back(root_in);
+	}
+}
+bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle, bool* direct_shot)
+{
+	// Variables created for this chuck of code in a function
+	bool reached_next_wp = false;
+	NED_s P;
+	node* root = root_ptrs[i];
+	double distance;
+
+
+	// Check to see if it is possible to go straight to the next path
+	cout << "\tChecking direct Connect" << endl;
+	NED_s coming_from;
+	if (i == 0)
+	{
+		coming_from = map.wps[i];
+		reached_next_wp = flyZoneCheck(root->NED, map.wps[i + 1], clearance);
+		closest_node = root;
+		if (reached_next_wp)
+		{
+			double land_distance = sqrt(pow(root->NED.N - map.wps[i + 1].N, 2) + pow(root->NED.E - map.wps[i + 1].E, 2));
+			double height_change = map.wps[i + 1].D - root->NED.D;
+			double slope = atan2(-1.0*height_change, land_distance)*180.0 / 3.141592653;
+			if (slope < -1.0*input_file->descend_angle || slope > input_file->climb_angle)
+				reached_next_wp = false;
+		}
+	}
+	else
+	{
+		P = map.wps[i + 1];
+		distance = 9999999999999999999999.0; // Some crazy big number to start out with, maybe look into HUGE_VAL or Inf - worried about embedded implementation.
+		double distance_gchild;
+		bool found_clean_path = false;
+		// Check to see if you can make one turn radius and then go to the next waypoint.
+		NED_s cea;
+		if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, *second2last_post_smoothed, root, &cea, distance_in, fillet_angle))
+		{
+			found_clean_path = true;
+			*direct_shot = true;
+			closest_node = root->children[root->children.size() - 1];
+			coming_from = closest_node->NED;
+			reached_next_wp = true;
+			closest_node->available_dist = 0.0;
+			distance = sqrt(pow(root->NED.N - closest_node->NED.N, 2) + pow(root->NED.E - closest_node->NED.E, 2) + pow(root->NED.D - closest_node->NED.D, 2));
+			closest_node->distance = distance;
+		}
+		else
+		{
+			for (unsigned int j = 0; j < root->children.size(); j++)
+				for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
+				{
+					distance_gchild = sqrt(pow(P.N - root->children[j]->children[k]->NED.N, 2) + pow(P.E - root->children[j]->children[k]->NED.E, 2) + pow(P.D - root->children[j]->children[k]->NED.D, 2));
+					closest_node_gchild = find_closest_node(root->children[j]->children[k], P, root->children[j]->children[k], &distance_gchild);
+					if (distance_gchild < distance)
+					{
+						closest_node = closest_node_gchild;
+						distance = distance_gchild;
+					}
+				}
+			coming_from = closest_node->NED;
+			reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance);
+			if (reached_next_wp)
+				reached_next_wp = check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, distance_in, fillet_angle);
+		}
+	}
+	if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
+		if (check_create_fan(map.wps[i + 1], coming_from, root_ptrs[i + 1]) == false)
+			reached_next_wp = false;
+	return reached_next_wp;
+}
+void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2last, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle)
+{
+	// Variables needed to create for this function
+	double distance;
+	NED_s P;
+	node* root = root_ptrs[i];
+	clearance = input_file->clearance;
+	double clearanceP = clearance;
+
+	double added_nodes = 0.0;								// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
+	cout << "\tDeveloping branches" << endl;
+	while (reached_next_wp == false)
+	{
+		node *vpos = new node;								// vpos is the next node to add to the tree
+		bool found_feasible_link = false;
+
+		// Once you found a node to add to the tree that doesn't intersect with an obstacle, add it to the tree
+		unsigned int p_count(0);
+		while (found_feasible_link == false)
+		{
+			// Generate random P until it is within boundaries and not on an obstacle.
+			P.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
+			P.E = rg.randLin()*(maxEast - minEast) + minEast;
+			P.D = map.wps[i + 1].D;
+			while (flyZoneCheck(P, clearanceP) == false)
+			{
+				P.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
+				P.E = rg.randLin()*(maxEast - minEast) + minEast;
+				P.D = map.wps[i + 1].D;
+			}
+			p_count++;
+			if (p_count == floor(iters_limit / 2.0) || p_count == floor(iters_limit*3.0 / 4.0) || p_count == floor(iters_limit*7.0 / 8.0))
+			{
+				clearanceP = clearanceP / 6.0;
+				cout << "DECREASING THE CLEARANCE LEVEL" << endl;
+				clearance = clearance / 2.0;
+				cout << "CLEARANCE:\t" << clearance << endl;
+			}
+			distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
+
+			// Find the closest node to the point P, if you are not trying to get to waypoint 1 (which is the second waypoint), then don't accept the root or the children of the root.
+
+			if (i == 0)
+				closest_node = find_closest_node(root, P, root, &distance);
+			else
+			{
+				distance = 9999999999999999999999.0; // Some crazy big number to start out with - maybe look into HUGE_VAL or Inf - worried about embedded implementation.
+				double distance_gchild;
+				for (unsigned int j = 0; j < root->children.size(); j++)
+					for (unsigned int k = 0; k < root->children[j]->children.size(); k++)
+					{
+						distance_gchild = sqrt(pow(P.N - root->children[j]->children[k]->NED.N, 2) + pow(P.E - root->children[j]->children[k]->NED.E, 2) + pow(P.D - root->children[j]->children[k]->NED.D, 2));
+						closest_node_gchild = find_closest_node(root->children[j]->children[k], P, root->children[j]->children[k], &distance_gchild);
+						if (distance_gchild < distance)
+						{
+							closest_node = closest_node_gchild;
+							distance = distance_gchild;
+						}
+					}
+			}
+
+			double theta = atan2(P.N - closest_node->NED.N, P.E - closest_node->NED.E);
+
+			// Go a distance D along the line from closest node to P to find the next node position vpos
+			if (alg_input.uniform2P)
+				D = rg.randLin()*distance;
+			else if (alg_input.gaussianD)
+				D = rg.randNor(distance, alg_input.gaussianSTD);
+			vpos->NED.N = (closest_node->NED.N) + sin(theta)*D;
+			vpos->NED.E = (closest_node->NED.E) + cos(theta)*D;
+			vpos->NED.D = map.wps[i + 1].D;
+
+			// If this path is good move on.
+			// Check to see if the straight line path is good.
+			if (flyZoneCheck(closest_node->NED, vpos->NED, clearance))
+			{
+				found_feasible_link = true;
+				vpos->parent = closest_node;
+				if (alg_input.path_type == 1 && root != vpos->parent)								// If the path type is fillets, check to see if the fillet is possible.
+					found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED, closest_node->available_dist, distance_in, fillet_angle);
+			}
+		}
+		// add the new node to the tree
+		closest_node->children.push_back(vpos);
+		vpos->distance = sqrt(pow(closest_node->NED.N - vpos->NED.N, 2) + pow(closest_node->NED.E - vpos->NED.E, 2) + pow(closest_node->NED.D - vpos->NED.D, 2));
+		if (alg_input.path_type == 1 && vpos->parent != root)
+		{
+			// Adjust the vpos->distance to account for the turning radius ( a little bit smaller.)
+			vpos->available_dist = vpos->distance - *distance_in;
+			vpos->distance = vpos->distance - 2.0*(*distance_in) + (*fillet_angle)*input_file->turn_radius;
+		}
+		else
+			vpos->available_dist = vpos->distance;
+
+		// Make provisions so that the algorithm doesn't hang
+		added_nodes++;
+		if (added_nodes == floor(iters_limit / 2.0) || added_nodes == floor(iters_limit*3.0 / 4.0) || added_nodes == floor(iters_limit*7.0 / 8.0))
+		{
+			cout << "DECREASING THE CLEARANCE LEVEL" << endl;
+			clearance = clearance / 2.0;
+			cout << "CLEARANCE:\t" << clearance << endl;
+		}
+		if (added_nodes >= iters_limit)
+		{
+			cout << "WARNING -- ALGORITHM FAILED TO CONVERGE\nRESULTS WILL VIOLATE AN OBSTACLE" << endl;
+			reached_next_wp = true;
+			second2last = vpos;
+		}
+
+		// Check to see if it is possible to go from this newly added node to the next primary waypoint
+		if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+		{
+			reached_next_wp = true;								// Set the flag
+			second2last = vpos;
+			if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
+				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle);
+		}								// Set the flag
+		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance))
+		{
+			reached_next_wp = true;								// Set the flag
+			second2last = vpos;
+			if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
+				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle);
+		}
+		if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
+		{
+			if (check_create_fan(map.wps[i + 1], vpos->NED, root_ptrs[i + 1]) == false)
+				reached_next_wp = false;
+		}
+	}
+	// We can go to the next waypoint!
+	// The following code wraps up the algorithm.
+	node *final_node = new node;
+	final_node->NED = map.wps[i + 1];
+	second2last->children.push_back(final_node);
+	*second2last_post_smoothed = second2last->NED;
+	final_node->parent = second2last;
+	final_node->distance = sqrt(pow(final_node->NED.N - second2last->NED.N, 2) + pow(final_node->NED.E - second2last->NED.E, 2) + pow(final_node->NED.D - second2last->NED.D, 2));
+	if (alg_input.path_type == 1 && final_node->parent != root)
+		final_node->distance = final_node->distance - 2.0*(*distance_in) + (*fillet_angle)*input_file->turn_radius;
+	// populate all wps by working back up the tree
+	stack<node*> wpstack;
+	node *current_node = final_node;
+	while (current_node != root)
+	{
+		wpstack.push(current_node);
+		current_node = current_node->parent;
+	}
+	wpstack.push(root);
+
+	// Now put all of the waypoints into the all_wps vector
+	vector<NED_s> wps_to_PrimaryWP;
+	while (!wpstack.empty())
+	{
+		wps_to_PrimaryWP.push_back(wpstack.top()->NED);
+		wpstack.pop();
+	}
+	all_wps.push_back(wps_to_PrimaryWP);
+	wps_to_PrimaryWP.clear();
+}
+void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in, double* fillet_angle, NED_s* second2last_post_smoothed, bool direct_shot)
+{
+	node* root = root_ptrs[i];
+
+	// Smooth Out the path (Algorithm 11 in the UAV book)
+	// Check somewhere in this function to see if it possible to get a more smooth exit out of waypoints
+	if (skip_smoother == false)
+	{
+		cout << "\tSmoothing Path" << endl;
+		vector<NED_s> path_smoothed;
+		vector<double> available_ds;
+		unsigned int i_node = 0;	// i_node is which index of the SMOOTHED PATH you are on.
+		unsigned int j_node = 1;	// j_node is which index of the ROUGH PATH you are on.
+		double line_Distance;
+		path_smoothed.push_back(all_wps[i][0]);
+
+		if (i != 0)
+		{
+			path_smoothed.push_back(all_wps[i][1]);
+			i_node++;
+			j_node++;
+			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+			available_ds.push_back(line_Distance - *distance_in);
+
+			path_smoothed.push_back(all_wps[i][2]);
+			i_node++;
+			j_node++;
+			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+			available_ds.push_back(line_Distance - *distance_in);
+		}
+		while (j_node < all_wps[i].size())
+		{
+			bool bad_path_flag = false;
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+				bad_path_flag = true;
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false)
+				bad_path_flag = true;
+			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle) == false)
+				bad_path_flag = true;
+			if (i != 0 && alg_input.path_type == 1 && j_node == all_wps[i].size() - 3 && bad_path_flag == false)
+			{
+				double temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 2].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 2].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 2].D, 2)) - *distance_in;
+				if (check_fillet(path_smoothed[i_node], all_wps[i][j_node + 1], all_wps[i][j_node + 2], temp_available_ds, distance_in, fillet_angle) == false)
+				{
+					bad_path_flag = true;
+					// If this is true then really you should check the next one back.
+					// Now we are working backwards to find a good path.
+					while (bad_path_flag)
+					{
+						j_node--;
+						temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 1].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 1].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 1].D, 2)) - *distance_in;
+						if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance))
+							if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, distance_in, fillet_angle))
+								bad_path_flag = false;
+					}
+					bad_path_flag = true;
+				}
+			}
+			if (bad_path_flag) // Try adding the second to last node every time. Avoids problems with smoothing out the last fillet.
+			{
+				path_smoothed.push_back(all_wps[i][j_node]);
+				i_node++;
+				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
+				available_ds.push_back(line_Distance - *distance_in);
+			}
+			j_node++;
+		}
+		// Check to see if the fan can be created better
+		// If so, change path_smoothed[1] and delete path_smoothed[2]
+		NED_s cea;
+		if (i > 0 && i <= map.wps.size() - 1 && direct_shot == false && path_smoothed.size() >= 4 && check_direct_fan(path_smoothed[3], root->NED, all_wps[i - 1][all_wps[i - 1].size() - 1], root, &cea, distance_in, fillet_angle))
+		{
+			if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], clearance))
+			{
+				path_smoothed[1] = root->children[root->children.size() - 1]->NED;
+				path_smoothed.erase(path_smoothed.begin() + 2);
+				cout << "SMOOTHED THE FAN" << endl;
+			}
+		}
+
+		all_wps[i].swap(path_smoothed);
+		*second2last_post_smoothed = all_wps[i][all_wps[i].size() - 1];
+	}
+	else
+		all_wps[i].erase(all_wps[i].begin() + all_wps[i].size() - 1);
+}
+void simpleRRT::calc_path_distance(unsigned int i)
+{
+	// Determine the true path distance. (This kind of covers up some mistakes above...)
+	double final_distance = 0;
+	for (unsigned j = 0; j < all_wps[i].size() - 1; j++)
+	{
+		final_distance += sqrt(pow(all_wps[i][j].N - all_wps[i][j + 1].N, 2) + pow(all_wps[i][j].E - all_wps[i][j + 1].E, 2) + pow(all_wps[i][j].D - all_wps[i][j + 1].D, 2));
+	}
+	final_distance += sqrt(pow(all_wps[i][all_wps[i].size() - 1].N - map.wps[i + 1].N, 2) + pow(all_wps[i][all_wps[i].size() - 1].E - map.wps[i + 1].E, 2) + pow(all_wps[i][all_wps[i].size() - 1].D - map.wps[i + 1].D, 2));
+	path_distances.push_back(final_distance);
+	cout << "PATH DISTANCE: " << path_distances[i] << endl;
 }
 void simpleRRT::delete_tree()
 {

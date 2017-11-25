@@ -71,5 +71,11 @@ private:
 	bool check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle);	// Check to see if the fillet connecting lines clears the obstacles and boundary lines.
 	bool check_create_fan(NED_s primary_wp, NED_s coming_from, node* next_root);	// This function checks to see if a fan can be created, and it also creates it.
 	bool check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root, NED_s* cea_out, double* din, double* anglin);	// Check and create a direct round to straight path.
+	
+	void initialize_tree();
+	bool direct_connection(unsigned int i, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle, bool* direct_shot);// This function checks to see if there is a direct connection to the next waypoint
+	void develop_tree(unsigned int i, bool reached_next_wp, node* second2last, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle); // Develops the tree
+	void smoother(bool skip_smoother, unsigned int i, double* distance_in, double* fillet_angle, NED_s* second2last_post_smoothed, bool direct_shot);
+	void calc_path_distance(unsigned int i);
 };
 #endif

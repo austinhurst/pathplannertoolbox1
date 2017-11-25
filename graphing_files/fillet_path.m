@@ -21,11 +21,11 @@ if length(path_data(:,1)) > 2
         theta = atan2(nex.N - mid.N, nex.E - mid.E);
         pe.N = (mid.N) + sin(theta)*distance_in;
         pe.E = (mid.E) + cos(theta)*distance_in;
-        pe.D = 0;%// 2D, this will need to be fixed once in 3d
+        pe.D = mid.D;
         gamma = atan2(par.N - mid.N, par.E - mid.E);
         ps.N = (mid.N) + sin(gamma)*distance_in;
         ps.E = (mid.E) + cos(gamma)*distance_in;
-        ps.D = 0;%// 2D, this will need to be fixed once in 3d
+        ps.D = mid.D;
         %// Find out whether it is going to the right (cw) or going to the left (ccw)
         %// Use the cross product to see if it is cw or ccw
         cross_product = ((mid.E - ps.E)*(pe.N - mid.N) - (mid.N - ps.N)*(pe.E - mid.E));
@@ -50,11 +50,10 @@ if length(path_data(:,1)) > 2
             eA = gamma + 3/2.0*pi;
             [Nc, Ec] = arc(cp.N,cp.E,turn_radius,theta+pi/2.0,gamma + 3/2.0*pi);
         end
-        figure (1)
         %plot(Ec,Nc,'LineWidth',5);
         
         
-        Dc = zeros(size(Nc));
+        Dc = ones(size(Nc))*cp.D;
         arc_points = [Nc.',Ec.',Dc.'];
         if (ccw == false)
             arc_points = flipud(arc_points);
