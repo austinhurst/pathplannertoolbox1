@@ -572,9 +572,9 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 		while (j_node < all_wps[i].size())
 		{
 			bool bad_path_flag = false;
-			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false || (check_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false)))
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false))
 				bad_path_flag = true;
-			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false || (check_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false)))
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false))
 				bad_path_flag = true;
 			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle) == false)
 				bad_path_flag = true;

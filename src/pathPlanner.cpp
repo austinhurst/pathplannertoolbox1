@@ -26,6 +26,7 @@ void pathPlanner::ppSetup()
 	// This function pulls in the competition boundaries and finds the minimum and maxium North and East positions
 	// Even thought the mapper class does this, the mapper class won't be put into ROSplane, so it is done here
 	// which should be put into ROSplane pathplanner
+	is3D = input_file->is3D;
 	NED_s boundary_point;
 	bool setFirstValues = true;
 	for (unsigned int i = 0; i < map.boundary_pts.size(); i++)
