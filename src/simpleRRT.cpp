@@ -200,6 +200,7 @@ bool simpleRRT::check_create_fan(NED_s primary_wp, NED_s coming_from, node* next
 				fake_child->parent = next_root;
 				fake_child->distance = 2.0*zeta*input_file->turn_radius;
 				fake_child->path_type = 1;
+				fake_child->line_start = next_root->NED;
 				next_root->children.push_back(fake_child);
 
 				normal_gchild->NED = lea;
@@ -207,6 +208,7 @@ bool simpleRRT::check_create_fan(NED_s primary_wp, NED_s coming_from, node* next
 				normal_gchild->parent = fake_child;
 				normal_gchild->distance = normal_gchild->available_dist;
 				normal_gchild->path_type = 1;
+				normal_gchild->line_start = cea;
 				fake_child->children.push_back(normal_gchild);
 			}
 		// Check the negative side
@@ -234,6 +236,7 @@ bool simpleRRT::check_create_fan(NED_s primary_wp, NED_s coming_from, node* next
 				fake_child->parent = next_root;
 				fake_child->distance = 2.0*zeta*input_file->turn_radius;
 				fake_child->path_type = 1;
+				fake_child->line_start = next_root->NED;
 				next_root->children.push_back(fake_child);
 
 				normal_gchild->NED = lea;
@@ -241,12 +244,13 @@ bool simpleRRT::check_create_fan(NED_s primary_wp, NED_s coming_from, node* next
 				normal_gchild->parent = fake_child;
 				normal_gchild->distance = normal_gchild->available_dist;
 				normal_gchild->path_type = 1;
+				normal_gchild->line_start = cea;
 				fake_child->children.push_back(normal_gchild);
 			}
 	}
 	return found_at_least_1_good_path;
 }
-bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle)
+bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, double* din, double* cangle, NED_s* line_start)
 {
 	bool found_feasible_link = true;
 	// Calculate the fillet and check to see if it is a good fit.
@@ -291,6 +295,7 @@ bool simpleRRT::check_fillet(NED_s par, NED_s mid, NED_s nex, double avail_dis, 
 		cp.D = mid.D;
 		if (flyZoneCheck(ps, pe, turn_radius, cp, clearance, ccw) == false)
 			found_feasible_link = false;
+		*line_start = pe;
 	}
 	*din = distance_in;
 	*cangle = 2.0*atan(distance_in / turn_radius);
@@ -307,6 +312,7 @@ void simpleRRT::initialize_tree()
 		root_in->distance = 0.0;							// 0 distance.
 		root_in->available_dist = 0.0;						// No available distance, (No parent assumption)
 		root_in->path_type = 0;								// straight lines for now at the primary waypoints.
+		root_in->line_start = root_in->NED;					// The line start is set to it's own location, for now.
 		root_ptrs.push_back(root_in);
 	}
 }
@@ -314,7 +320,7 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 {
 	// Variables created for this chuck of code in a function
 	bool reached_next_wp = false;
-	NED_s P;
+	NED_s P, line_start;
 	node* root = root_ptrs[i];
 	double distance;
 	
@@ -336,7 +342,8 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 		reached_next_wp = flyZoneCheck(root->NED, map.wps[i + 1], clearance);
 		closest_node = root;
 		if (reached_next_wp)
-			reached_next_wp = check_slope(root->NED, map.wps[i + 1]);
+			reached_next_wp = check_slope(root->line_start, map.wps[i + 1]);
+		line_start = root->NED;
 	}
 	else
 	{
@@ -348,7 +355,8 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 		NED_s cea;
 		if (i <= map.wps.size() - 1 && check_direct_fan(map.wps[i + 1], root->NED, *second2last_post_smoothed, root, &cea, distance_in, fillet_angle))
 		{
-			if (check_slope(root->children[root->children.size() - 1]->NED, map.wps[i + 1]))
+			line_start = cea;
+			if (check_slope(line_start, map.wps[i + 1]))
 			{
 				closest_node = root->children[root->children.size() - 1];
 				found_clean_path = true;
@@ -374,21 +382,23 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 					}
 				}
 			coming_from = closest_node->NED;
-			reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance) && check_slope(coming_from, map.wps[i + 1]);
-			if (reached_next_wp)
-				reached_next_wp = check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, distance_in, fillet_angle);
+			reached_next_wp = flyZoneCheck(coming_from, map.wps[i + 1], clearance);
+			if (reached_next_wp && check_fillet(closest_node->parent->NED, closest_node->NED, map.wps[i + 1], closest_node->available_dist, distance_in, fillet_angle, &line_start))
+				reached_next_wp = check_slope(line_start, map.wps[i + 1]);
 		}
 	}
 	if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to fly out of the primary waypoints.
 		if (check_create_fan(map.wps[i + 1], coming_from, root_ptrs[i + 1]) == false)
 			reached_next_wp = false;
+	if (reached_next_wp)
+		root_ptrs[i + 1]->line_start = line_start;
 	return reached_next_wp;
 }
 void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2last, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle)
 {
 	// Variables needed to create for this function
 	double distance;
-	NED_s P;
+	NED_s P, line_start;
 	node* root = root_ptrs[i];
 	double clearanceP = clearance;
 	int clearance_drops = 0;
@@ -398,7 +408,6 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 	{
 		node *vpos = new node;								// vpos is the next node to add to the tree
 		bool found_feasible_link = false;
-
 		// Once you found a node to add to the tree that doesn't intersect with an obstacle, add it to the tree
 		unsigned int p_count(0);
 		while (found_feasible_link == false)
@@ -467,10 +476,11 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 				found_feasible_link = true;
 				vpos->parent = closest_node;
 				if (alg_input.path_type == 1 && root != vpos->parent)								// If the path type is fillets, check to see if the fillet is possible.
-					found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED, closest_node->available_dist, distance_in, fillet_angle);
+					found_feasible_link = check_fillet(closest_node->parent->NED, closest_node->NED, vpos->NED, closest_node->available_dist, distance_in, fillet_angle, &line_start);
 			}
 		}
 		// add the new node to the tree
+		vpos->line_start = line_start;
 		closest_node->children.push_back(vpos);
 		vpos->distance = sqrt(pow(closest_node->NED.N - vpos->NED.N, 2) + pow(closest_node->NED.E - vpos->NED.E, 2) + pow(closest_node->NED.D - vpos->NED.D, 2));
 		if (alg_input.path_type == 1 && vpos->parent != root)
@@ -496,22 +506,23 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 			cout << "WARNING -- ALGORITHM FAILED TO CONVERGE\nRESULTS WILL VIOLATE AN OBSTACLE" << endl;
 			reached_next_wp = true;
 			second2last = vpos;
+			line_start = vpos->NED;
 		}
 
 		// Check to see if it is possible to go from this newly added node to the next primary waypoint
-		if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(vpos->NED, map.wps[i + 1]))
+		if (alg_input.connect_to_end && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(line_start, map.wps[i + 1]))
 		{
 			reached_next_wp = true;								// Set the flag
 			second2last = vpos;
 			if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
-				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle);
+				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle,&line_start);
 		}								// Set the flag
-		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(vpos->NED, map.wps[i + 1]))
+		if (!alg_input.connect_to_end && sqrt(pow(map.wps[i + 1].N - vpos->NED.N, 2) + pow(map.wps[i + 1].E - vpos->NED.E, 2) + pow(map.wps[i + 1].D - vpos->NED.D, 2)) < D && flyZoneCheck(vpos->NED, map.wps[i + 1], clearance) && check_slope(line_start, map.wps[i + 1]))
 		{
 			reached_next_wp = true;								// Set the flag
 			second2last = vpos;
 			if (alg_input.path_type == 1 && root != vpos)								// If the path type is fillets, check to see if the fillet is possible.
-				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle);
+				reached_next_wp = check_fillet(vpos->parent->NED, vpos->NED, map.wps[i + 1], vpos->available_dist, distance_in, fillet_angle, &line_start);
 		}
 		if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to get out of the primary waypoints.
 		{
@@ -524,6 +535,7 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 	clearance = input_file->clearance;									// Bump up the clearance level again.
 	node *final_node = new node;
 	final_node->NED = map.wps[i + 1];
+	final_node->line_start = line_start;
 	second2last->children.push_back(final_node);
 	*second2last_post_smoothed = second2last->NED;
 	final_node->parent = second2last;
@@ -542,13 +554,17 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 
 	// Now put all of the waypoints into the all_wps vector
 	vector<NED_s> wps_to_PrimaryWP;
+	vector<NED_s> line_starts_to_PrimaryWP;
 	while (!wpstack.empty())
 	{
 		wps_to_PrimaryWP.push_back(wpstack.top()->NED);
+		line_starts_to_PrimaryWP.push_back(wpstack.top()->line_start);
 		wpstack.pop();
 	}
 	all_wps.push_back(wps_to_PrimaryWP);
+	line_starts.push_back(line_starts_to_PrimaryWP);
 	wps_to_PrimaryWP.clear();
+	line_starts_to_PrimaryWP.clear();
 }
 void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in, double* fillet_angle, NED_s* second2last_post_smoothed, bool direct_shot)
 {
@@ -561,21 +577,25 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 	{
 		cout << "\tSmoothing Path" << endl;
 		vector<NED_s> path_smoothed;
+		vector<NED_s> line_starts_smoothed;
 		vector<double> available_ds;
 		unsigned int i_node = 0;	// i_node is which index of the SMOOTHED PATH you are on.
 		unsigned int j_node = 1;	// j_node is which index of the ROUGH PATH you are on.
 		double line_Distance;
 		path_smoothed.push_back(all_wps[i][0]);
-
+		line_starts_smoothed.push_back(line_starts[i][0]);
+		NED_s line_start;
 		if (i != 0)
 		{
 			path_smoothed.push_back(all_wps[i][1]);
+			line_starts_smoothed.push_back(line_starts[i][1]);
 			i_node++;
 			j_node++;
 			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
 			available_ds.push_back(line_Distance - *distance_in);
 
 			path_smoothed.push_back(all_wps[i][2]);
+			line_starts_smoothed.push_back(line_starts[i][2]);
 			i_node++;
 			j_node++;
 			line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
@@ -584,16 +604,16 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 		while (j_node < all_wps[i].size())
 		{
 			bool bad_path_flag = false;
-			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false))
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(line_starts_smoothed[i_node], all_wps[i][j_node + 1]) == false))
 				bad_path_flag = true;
-			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false))
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(line_starts_smoothed[i_node], all_wps[i][j_node + 1]) == false))
 				bad_path_flag = true;
-			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle) == false)
+			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle, &line_start) == false)
 				bad_path_flag = true;
 			if (i != 0 && alg_input.path_type == 1 && j_node == all_wps[i].size() - 3 && bad_path_flag == false)
 			{
 				double temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 2].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 2].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 2].D, 2)) - *distance_in;
-				if (check_fillet(path_smoothed[i_node], all_wps[i][j_node + 1], all_wps[i][j_node + 2], temp_available_ds, distance_in, fillet_angle) == false)
+				if (check_fillet(path_smoothed[i_node], all_wps[i][j_node + 1], all_wps[i][j_node + 2], temp_available_ds, distance_in, fillet_angle,&line_start) == false)
 				{
 					bad_path_flag = true;
 					// If this is true then really you should check the next one back.
@@ -603,7 +623,7 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 						j_node--;
 						temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 1].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 1].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 1].D, 2)) - *distance_in;
 						if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance))
-							if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, distance_in, fillet_angle))
+							if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, distance_in, fillet_angle, &line_start))
 								bad_path_flag = false;
 					}
 					bad_path_flag = true;
@@ -612,6 +632,7 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 			if (bad_path_flag) // Try adding the second to last node every time. Avoids problems with smoothing out the last fillet.
 			{
 				path_smoothed.push_back(all_wps[i][j_node]);
+				line_starts_smoothed.push_back(line_start);
 				i_node++;
 				line_Distance = sqrt(pow(path_smoothed[i_node].N - path_smoothed[i_node - 1].N, 2.) + pow(path_smoothed[i_node].E - path_smoothed[i_node - 1].E, 2) + pow(path_smoothed[i_node].D - path_smoothed[i_node - 1].D, 2));
 				available_ds.push_back(line_Distance - *distance_in);
@@ -626,12 +647,15 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 			if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], path_clearance))
 			{
 				path_smoothed[1] = root->children[root->children.size() - 1]->NED;
+				line_starts_smoothed[1] = cea;
 				path_smoothed.erase(path_smoothed.begin() + 2);
+				line_starts_smoothed.erase(line_starts_smoothed.begin() + 2);
 				cout << "SMOOTHED THE FAN" << endl;
 			}
 		}
 
 		all_wps[i].swap(path_smoothed);
+		line_starts[i].swap(line_starts_smoothed);
 		*second2last_post_smoothed = all_wps[i][all_wps[i].size() - 1];
 	}
 	else
