@@ -48,6 +48,10 @@ fileReader::fileReader(string input_file)
 				climb_angle = stod(variable_value);
 			else if (variable_name == "descend_angle")
 				descend_angle = stod(variable_value);
+			else if (variable_name == "max_climb_angle")
+				max_climb_angle = stod(variable_value);
+			else if (variable_name == "max_descend_angle")
+				max_descend_angle = stod(variable_value);
 			else if (variable_name == "clearance")
 				clearance = stod(variable_value);
 			else if (variable_name == "iters_limit")
@@ -105,6 +109,8 @@ fileReader::fileReader(string input_file)
 	special_pfile = special_pfile				  + file_extension;
 	climb_angle = climb_angle*3.141592653 / 180.0;
 	descend_angle = descend_angle*3.141592653 / 180.0;
+	max_climb_angle = max_climb_angle*3.141592653 / 180.0;
+	max_descend_angle = max_descend_angle*3.141592653 / 180.0;
 }
 fileReader::~fileReader()
 {

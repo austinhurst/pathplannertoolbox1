@@ -25,6 +25,8 @@ public:
 	double turn_radius;
 	double climb_angle;
 	double descend_angle;
+	double max_climb_angle;
+	double max_descend_angle;
 
 	// General Path Planning Algorithm Settings
 	double clearance;

@@ -151,7 +151,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 		wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 		wp.E = rg.randLin()*(maxEast - minEast) + minEast;
 		if (is3D)
-			wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+			wp.D = (rg.randLin()*((maxFlyHeight-waypoint_clearance) - (minFlyHeight+waypoint_clearance)) + minFlyHeight + waypoint_clearance)*-1.0; // Put the MSL into down (make it negative)
 		else
 			wp.D = 0;
 		// Check to see if the placement is good, keep generating a new one until it fits
@@ -160,7 +160,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 			wp.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			wp.E = rg.randLin()*(maxEast - minEast) + minEast;
 			if (is3D)
-				wp.D = (rg.randLin()*(maxFlyHeight - minFlyHeight) + minFlyHeight)*-1.0; // Put the MSL into down (make it negative)
+				wp.D = (rg.randLin()*((maxFlyHeight - waypoint_clearance) - (minFlyHeight + waypoint_clearance)) + minFlyHeight + waypoint_clearance)*-1.0; // Put the MSL into down (make it negative)
 			else
 				wp.D = 0;
 		}

@@ -46,7 +46,8 @@ protected:
 	double minEast;										// Minimum East  coordinate inside the boundaries
 	double minFlyHeight;								// Minimum Fly Height (positive value)
 	double maxFlyHeight;								// Maximum Fly Height (positive value)
-	double clearance;									// The minimum clearance that the path will have away from any obstacles
+	double clearance;									// The minimum clearance that the path will have away from any obstacles (can fluctuate up and down)
+	double path_clearance;								// The minimum clearance that the path from waypoint i to i+1 will have. (only decreases until new waypoint is obtained)
 	bool is3D;											// If the simulation is in 3D or 2D
 	unsigned int iters_limit;							// This is the maximum number of iterations the solver will do before it will just move on
 };

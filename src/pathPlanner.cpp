@@ -215,24 +215,24 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 		// Check in 3D. Note that if the above is true, this check does not need to be performed.
 		if (is3D && clearThisCylinder == false)
 		{
-			double dD = (pe.D - ps.D) / sqrt(pow(ps.N - pe.N, 2) + pow(pe.E - pe.E, 2));
+			double dD = (pe.D - ps.D) / sqrt(pow(ps.N - pe.N, 2) + pow(ps.E - pe.E, 2));
 			double bt = cylinderPoint.N - path_Mandb[2] * cylinderPoint.E;
 			Ei = (bt - path_Mandb[1]) / (path_Mandb[3]);
 			Ni = path_Mandb[2] * Ei + bt;
-			double bigLength = sqrt(pow(map.cylinders[i].R + r, 2) - pow(Ni - cylinderPoint.N, 2) - pow(Ei - cylinderPoint.E, 2));
+			double bigLength = sqrt(pow(map.cylinders[i].R + r, 2) - pow(Ni - cylinderPoint.N, 2) - pow(Ei - cylinderPoint.E, 2)); // What is bigLength????
 			double d2cyl;
 			// Check to see if the path is above the cylinder height or into the cylinder
 			if (sqrt(pow(ps.N - cylinderPoint.N, 2) + pow(ps.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r && sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
-			{
+			{// if BOTH of the endpoints is within the 2d cylinder
 				if (-ps.D < map.cylinders[i].H + r)
 					return false;
 				if (-ps.D < map.cylinders[i].H + r)
 					return false;
 			}
 			else
-			{
+			{// if at least one waypoint is outside of the 2d cylinder
 				if (sqrt(pow(ps.N - cylinderPoint.N, 2) + pow(ps.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
-				{
+				{// if the starting point is within the 2d cylinder
 					if (-ps.D < map.cylinders[i].H + r)
 						return false;
 					// else (check to see if the line that intersects the cylinder is in or out)
@@ -245,7 +245,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 						return false;
 				}
 				else if (sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
-				{
+				{// if the ending point is within the 2d cylinder 
 					if (-pe.D < map.cylinders[i].H + r)
 						return false;
 					// else check to see if the line that intersects the cylinder is in or out
@@ -262,13 +262,22 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 				{
 					// Calculate the intersection point of the line and the perpendicular line connecting the point
 					double d_from_cyl2inter = sqrt(pow(cylinderPoint.N - Ni, 2) + pow(cylinderPoint.E - Ei, 2));
-					double daway_from_int = sqrt(pow(r + map.cylinders[i].R, 2) - pow(d_from_cyl2inter, 2));
+					double daway_from_int = sqrt(pow(r + map.cylinders[i].R, 2) - pow(d_from_cyl2inter, 2)); // WHAT IS THIS?
 
 					// Now test the height at int +- daway_from_int;
+					double land_D_ps2i = sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
+					double deltaD = dD*sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
+
 					double Di = ps.D + dD*sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2));
+
+					double height1 = -(Di + dD*daway_from_int);
+					double height2 = -(Di - dD*daway_from_int);
+
 					if (-(Di + dD*daway_from_int) < map.cylinders[i].H + r)
 						return false;
 					if (-(Di - dD*daway_from_int) < map.cylinders[i].H + r)
+						return false;
+					if (-Di < map.cylinders[i].H + r)
 						return false;
 				}
 			}
@@ -285,7 +294,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 //****************************************************************LINE*************************************************************************************
 //****************************************************************LINE*************************************************************************************
 
-bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point start, point end, radius (
+bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point start, radius
 {
 	// This is a more simple version of the flyZoneCheck() that just checks if the point NED is at least radius away from any obstacle.
 	// First, Check Within the Boundaries
@@ -328,6 +337,10 @@ bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point st
 	withinBoundaries = crossed_lines % 2; // If it crosses an even number of boundaries it is NOT inside, if it crosses an odd number it IS inside
 	if (withinBoundaries == false)
 		return false;
+	// Check to see if the point is within the right fly altitudes
+	if (is3D)
+		if (-NED.D < minFlyHeight + radius || -NED.D > maxFlyHeight - radius)
+			return false;
 
 	// Second, Check for Cylinders
 	// Check if the point falls into the volume of the cylinder

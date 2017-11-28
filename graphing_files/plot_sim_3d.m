@@ -55,4 +55,16 @@ function [] = plot_sim_3d( )
 %         disp([total_path_distance]);
     end
     hold off
+    
+    %% check out the angle, output each waypoint
+    allwp = load('output_path.txt');
+    nR = length(allwp(:,1));
+    nC = length(allwp(1,:));
+    final_wangle = zeros(nR,nC+1);
+    final_wangle(:,1:end-1) = allwp;
+    for i = 1:nR-1
+        land_distance = sqrt((final_wangle(i+1,2) - final_wangle(i,2))^2 + (final_wangle(i+1,1) - final_wangle(i,1))^2);
+        final_wangle(i,end) = atan2(-final_wangle(i+1,3) + final_wangle(i,3), land_distance)*180.0/3.141592653;
+    end
+%     disp([final_wangle]);
 end

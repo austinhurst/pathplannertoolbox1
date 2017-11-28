@@ -72,6 +72,7 @@ private:
 	bool check_create_fan(NED_s primary_wp, NED_s coming_from, node* next_root);	// This function checks to see if a fan can be created, and it also creates it.
 	bool check_direct_fan(NED_s second_wp, NED_s primary_wp, NED_s coming_from, node* next_root, NED_s* cea_out, double* din, double* anglin);	// Check and create a direct round to straight path.
 	bool check_slope(NED_s beg, NED_s en);
+	bool check_max_slope(NED_s beg, NED_s en);
 	void initialize_tree();
 	bool direct_connection(unsigned int i, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle, bool* direct_shot);// This function checks to see if there is a direct connection to the next waypoint
 	void develop_tree(unsigned int i, bool reached_next_wp, node* second2last, NED_s* second2last_post_smoothed, double* distance_in, double* fillet_angle); // Develops the tree

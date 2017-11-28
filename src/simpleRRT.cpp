@@ -22,6 +22,7 @@ void simpleRRT::solve_static()								// This function solves for a path in betw
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
 	{
 		cout << "MAIN LOOP: " << i << endl;
+		path_clearance = input_file->clearance;
 		node *second2last = root_ptrs[i];					// This will be set as the second to last waypoint
 		double distance_in, fillet_angle;
 		bool direct_shot = false;
@@ -316,6 +317,15 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 	NED_s P;
 	node* root = root_ptrs[i];
 	double distance;
+	
+	// Make sure that the clearance level is right. Mostly this little bit checks to make sure that there is appropriate room to get waypoints close to the floor or ceiling.
+	clearance = input_file->clearance;
+	clearance = (-map.wps[i].D   - input_file->minFlyHeight < clearance) ? -map.wps[i].D   - input_file->minFlyHeight : clearance;
+	clearance = ( map.wps[i].D   + input_file->maxFlyHeight < clearance) ?  map.wps[i].D   + input_file->maxFlyHeight : clearance;
+	clearance = (-map.wps[i+1].D - input_file->minFlyHeight < clearance) ? -map.wps[i+1].D - input_file->minFlyHeight : clearance;
+	clearance = ( map.wps[i+1].D + input_file->maxFlyHeight < clearance) ?  map.wps[i+1].D + input_file->maxFlyHeight : clearance;
+	if (clearance <= 0)
+		cout << "ERROR. CLEARANCE IS 0 OR LESS THAN 0." << endl;
 
 	// Check to see if it is possible to go straight to the next path
 	cout << "\tChecking direct Connect" << endl;
@@ -380,9 +390,8 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 	double distance;
 	NED_s P;
 	node* root = root_ptrs[i];
-	clearance = input_file->clearance;
 	double clearanceP = clearance;
-
+	int clearance_drops = 0;
 	double added_nodes = 0.0;								// Keep a record of how many nodes are added so that the algorithm doesn't get stuck.
 	cout << "\tDeveloping branches" << endl;
 	while (reached_next_wp == false)
@@ -411,6 +420,7 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 				cout << "DECREASING THE CLEARANCE LEVEL" << endl;
 				clearance = clearance / 2.0;
 				cout << "CLEARANCE:\t" << clearance << endl;
+				path_clearance = (clearance < path_clearance) ? clearance : path_clearance;
 			}
 			distance = sqrt(pow(P.N - root->NED.N, 2) + pow(P.E - root->NED.E, 2) + pow(P.D - root->NED.D, 2));
 
@@ -477,8 +487,9 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 		if (added_nodes == floor(iters_limit / 2.0) || added_nodes == floor(iters_limit*3.0 / 4.0) || added_nodes == floor(iters_limit*7.0 / 8.0))
 		{
 			cout << "DECREASING THE CLEARANCE LEVEL" << endl;
-			clearance = clearance / 2.0;
+			clearance = clearance / (2.0*++clearance_drops);
 			cout << "CLEARANCE:\t" << clearance << endl;
+			path_clearance = (clearance < path_clearance) ? clearance : path_clearance;
 		}
 		if (added_nodes >= iters_limit)
 		{
@@ -510,6 +521,7 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 	}
 	// We can go to the next waypoint!
 	// The following code wraps up the algorithm.
+	clearance = input_file->clearance;									// Bump up the clearance level again.
 	node *final_node = new node;
 	final_node->NED = map.wps[i + 1];
 	second2last->children.push_back(final_node);
@@ -572,9 +584,9 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 		while (j_node < all_wps[i].size())
 		{
 			bool bad_path_flag = false;
-			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false))
+			if ((alg_input.path_type == 0 || i_node == 0) && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false))
 				bad_path_flag = true;
-			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance) == false))
+			else if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance) == false || check_max_slope(path_smoothed[i_node], all_wps[i][j_node + 1]) == false))
 				bad_path_flag = true;
 			if (alg_input.path_type == 1 && all_wps[i].size() >= j_node + 2 && i_node >= 1 && check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], available_ds[i_node - 1], distance_in, fillet_angle) == false)
 				bad_path_flag = true;
@@ -590,7 +602,7 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 					{
 						j_node--;
 						temp_available_ds = sqrt(pow(path_smoothed[i_node].N - all_wps[i][j_node + 1].N, 2) + pow(path_smoothed[i_node].E - all_wps[i][j_node + 1].E, 2) + pow(path_smoothed[i_node].D - all_wps[i][j_node + 1].D, 2)) - *distance_in;
-						if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], clearance))
+						if (flyZoneCheck(path_smoothed[i_node], all_wps[i][j_node + 1], path_clearance))
 							if (check_fillet(path_smoothed[i_node - 1], path_smoothed[i_node], all_wps[i][j_node + 1], temp_available_ds, distance_in, fillet_angle))
 								bad_path_flag = false;
 					}
@@ -611,7 +623,7 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 		NED_s cea;
 		if (i > 0 && i <= map.wps.size() - 1 && direct_shot == false && path_smoothed.size() >= 4 && check_direct_fan(path_smoothed[3], root->NED, all_wps[i - 1][all_wps[i - 1].size() - 1], root, &cea, distance_in, fillet_angle))
 		{
-			if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], clearance))
+			if (path_smoothed.size() >= 4 && flyZoneCheck(cea, path_smoothed[3], path_clearance))
 			{
 				path_smoothed[1] = root->children[root->children.size() - 1]->NED;
 				path_smoothed.erase(path_smoothed.begin() + 2);
@@ -629,6 +641,13 @@ bool simpleRRT::check_slope(NED_s beg, NED_s en)
 {
 	double slope = atan2(-1.0*(en.D - beg.D), sqrt(pow(beg.N - en.N, 2) + pow(beg.E - en.E, 2)));
 	if (slope < -1.0*input_file->descend_angle || slope > input_file->climb_angle)
+		return false;
+	return true;
+}
+bool simpleRRT::check_max_slope(NED_s beg, NED_s en)
+{
+	double slope = atan2(-1.0*(en.D - beg.D), sqrt(pow(beg.N - en.N, 2) + pow(beg.E - en.E, 2)));
+	if (slope < -1.0*input_file->max_descend_angle || slope > input_file->max_climb_angle)
 		return false;
 	return true;
 }

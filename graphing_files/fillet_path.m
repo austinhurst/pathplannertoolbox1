@@ -70,7 +70,7 @@ function [Nc,Ec] = arc(N, E, r, aS, aE)
     while aE < aS
         aE = aE + 2*pi;
     end
-    th = aS:pi/50000:aE;
+    th = aS:pi/35:aE;
     Ec = r*cos(th)+ E;
     Nc = r*sin(th)+ N;
 end
