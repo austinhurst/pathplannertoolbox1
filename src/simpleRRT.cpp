@@ -390,7 +390,7 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 	if (reached_next_wp == true && i < map.wps.size() - 2) // This if statement handles setting waypoints to fly out of the primary waypoints.
 		if (check_create_fan(map.wps[i + 1], coming_from, root_ptrs[i + 1]) == false)
 			reached_next_wp = false;
-	if (reached_next_wp)
+	if (reached_next_wp && i + 1 < root_ptrs.size())
 		root_ptrs[i + 1]->line_start = line_start;
 	return reached_next_wp;
 }
@@ -572,7 +572,6 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 	//skip_smoother = true; // Uncommmenting this line turns the smoother off. It can be helpful for debugging.
 
 	// Smooth Out the path (Algorithm 11 in the UAV book)
-	// Check somewhere in this function to see if it possible to get a more smooth exit out of waypoints
 	if (skip_smoother == false)
 	{
 		cout << "\tSmoothing Path" << endl;
@@ -628,6 +627,21 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 					}
 					bad_path_flag = true;
 				}
+			}
+			if (j_node + 1 == all_wps[i].size() - 1 && bad_path_flag == false && i != map.wps.size()-2)
+			{
+				int previous_fan_nodes = root_ptrs[i + 1]->children.size();
+				if (check_create_fan(map.wps[i + 1], path_smoothed[path_smoothed.size() - 1], root_ptrs[i + 1]))
+				{
+					// Delete the other nodes
+					for (unsigned int j = 0; j < root_ptrs[i+1]->children.size(); j++)		// Delete every tree generated
+						delete_node(root_ptrs[i+1]->children[j]);
+					vector<node*>().swap(root_ptrs[i+1]->children);
+					root_ptrs[i+1]->children.clear();
+					check_create_fan(map.wps[i + 1], path_smoothed[path_smoothed.size() - 1], root_ptrs[i + 1]);
+				}
+				else
+					bad_path_flag == true; // Make sure that jnode + 1 is added.
 			}
 			if (bad_path_flag) // Try adding the second to last node every time. Avoids problems with smoothing out the last fillet.
 			{

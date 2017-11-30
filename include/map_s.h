@@ -16,6 +16,14 @@ struct NED_s
 	double N;						// North (m)
 	double E;						// East  (m)
 	double D;						// Down  (m), Remember up is negative!
+	bool operator==(const NED_s s)
+	{
+		return N == s.N && E == s.E && D == s.D;
+	}
+	bool operator!=(const NED_s s)
+	{
+		return N != s.N || E != s.E || D != s.D;
+	}
 };
 struct cyl_s
 {
