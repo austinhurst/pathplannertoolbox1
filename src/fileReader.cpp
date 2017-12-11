@@ -56,6 +56,14 @@ fileReader::fileReader(string input_file)
 				clearance = stod(variable_value);
 			else if (variable_name == "iters_limit")
 				iters_limit = stoul(variable_value);
+			else if (variable_name == "N0")
+				N0 = stod(variable_value);
+			else if (variable_name == "E0")
+				E0 = stod(variable_value);
+			else if (variable_name == "D0")
+				D0 = stod(variable_value);
+			else if (variable_name == "chi0")
+				chi0 = stod(variable_value);
 			else if (variable_name == "boundaries_in_file")
 				boundaries_in_file = variable_value;
 			else if (variable_name == "latitude0")
@@ -107,10 +115,12 @@ fileReader::fileReader(string input_file)
 	primary_wps_out_file = primary_wps_out_file   + file_extension;
 	path_file = path_file						  + file_extension;
 	special_pfile = special_pfile				  + file_extension;
-	climb_angle = climb_angle*3.141592653 / 180.0;
-	descend_angle = descend_angle*3.141592653 / 180.0;
-	max_climb_angle = max_climb_angle*3.141592653 / 180.0;
-	max_descend_angle = max_descend_angle*3.141592653 / 180.0;
+	double deg2rad = 3.141592653/180.0;
+	climb_angle = climb_angle*deg2rad;
+	descend_angle = descend_angle*deg2rad;
+	max_climb_angle = max_climb_angle*deg2rad;
+	max_descend_angle = max_descend_angle*deg2rad;
+	chi0 = chi0*deg2rad;
 }
 fileReader::~fileReader()
 {

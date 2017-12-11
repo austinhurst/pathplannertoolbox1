@@ -50,5 +50,6 @@ protected:
 	double path_clearance;								// The minimum clearance that the path from waypoint i to i+1 will have. (only decreases until new waypoint is obtained)
 	bool is3D;											// If the simulation is in 3D or 2D
 	unsigned int iters_limit;							// This is the maximum number of iterations the solver will do before it will just move on
+	bool taking_off;								// If the plane is currently taking off, this option will allow the path planner to ignor the height restricitons.
 };
 #endif
