@@ -129,7 +129,7 @@ mapper::mapper(unsigned int seed, fileReader *input_file_in)
 		cyl.E = rg.randLin()*(maxEast - minEast) + minEast;
 		cyl.R = rg.randLin()*(maxCylRadius - minCylRadius) + minCylRadius;
 		// Check to see if it can fit there
-		while (flyZoneCheck(cyl) == false)
+		while (flyZoneCheck(cyl) == false || sqrt(pow(input_file->N0 - cyl.N, 2.0) + pow(input_file->E0 - cyl.E, 2.0)) < cyl.R + input_file->waypoint_clearance)
 		{
 			cyl.N = rg.randLin()*(maxNorth - minNorth) + minNorth;
 			cyl.E = rg.randLin()*(maxEast - minEast) + minEast;

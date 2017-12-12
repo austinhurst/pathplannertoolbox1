@@ -10,9 +10,9 @@ function [] = plot_sim_3d(varargin)
     plotCylinders3d("output_cylinders.txt");
     plotPrimaryWPS3d("output_primary_wps.txt");
     wp_index = 2;
-    for i = 1:length(pWPS(:,1))-1
+    for i = 1:length(pWPS(:,1))
         for j = wp_index:length(allWPS(:,1))
-            if allWPS(j,:) == pWPS(i+1,:)
+            if allWPS(j,:) == pWPS(i,:)
                 break;
             end
         end
