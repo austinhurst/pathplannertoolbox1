@@ -16,7 +16,7 @@ simpleRRT::~simpleRRT()
 	vector<node*>().swap(root_ptrs);						// Free the memory of the vector.
 }
 void simpleRRT::solve_static()								// This function solves for a path in between the waypoinnts (2 Dimensional)
-{	
+{
 	initialize_tree();
 	NED_s second2last_post_smoothed = root_ptrs[0]->NED;
 	for (unsigned int i = 0; i < map.wps.size()-1; i++)
@@ -323,7 +323,7 @@ bool simpleRRT::direct_connection(unsigned int i, NED_s* second2last_post_smooth
 	NED_s P, line_start;
 	node* root = root_ptrs[i];
 	double distance;
-	
+
 	// Make sure that the clearance level is right. Mostly this little bit checks to make sure that there is appropriate room to get waypoints close to the floor or ceiling.
 	clearance = input_file->clearance;
 	clearance = (-map.wps[i].D   - input_file->minFlyHeight < clearance) ? -map.wps[i].D   - input_file->minFlyHeight : clearance;

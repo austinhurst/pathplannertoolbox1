@@ -22,9 +22,9 @@ void pathPlanner::ppSetup()
 	// This function is called by the child class at the end of their constructor. There are certain things
 	// that need to be set first by that function and then the base class needs to do stuff - the base class constructor
 	// would not do it in the right order.
-	
+
 	// This function pulls in the competition boundaries and finds the minimum and maxium North and East positions
-	// Even thought the mapper class does this, the mapper class won't be put into ROSplane, so it is done here
+	// Even though the mapper class does this, the mapper class won't be put into ROSplane, so it is done here
 	// which should be put into ROSplane pathplanner
 	is3D = input_file->is3D;
 	NED_s boundary_point;
@@ -51,8 +51,8 @@ void pathPlanner::ppSetup()
 	clearance = input_file->clearance;		 // Clearance for the path (m)
 	minFlyHeight = input_file->minFlyHeight; // 30.48 m = 100 ft. // This still needs to add in the take off altitude
 	maxFlyHeight = input_file->maxFlyHeight; // 228.6 m = 750 ft. // This still needs to add in the take off altitude
-	iters_limit = input_file->iters_limit;	
-
+	iters_limit = input_file->iters_limit;
+	taking_off = (input_file->N0 < input_file->minFlyHeight);
 	// Also do the all of the calculations on the boundary lines.
 	setup_flyZoneCheck();
 }
@@ -173,7 +173,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 		if (lp_cleared == false)
 			return false;
 
-		// Check distance from pl to each boundary end point 
+		// Check distance from pl to each boundary end point
 		lp_cleared = lineAndPoint2d(ps, pe, pathMinMax, path_Mandb, map.boundary_pts[i], r);
 		if (lp_cleared == false)
 			return false;
@@ -183,13 +183,13 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 
 	// vvvvvvvvvvvvvvvv Finish up checking if the end points were both inside the boundary (ray casting) vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	withinBoundaries_ps = crossed_lines_ps % 2; // If it crosses an even number of boundaries it is NOT inside, if it crosses an odd number it IS inside
-	withinBoundaries_pe = crossed_lines_pe % 2; 
+	withinBoundaries_pe = crossed_lines_pe % 2;
 	if (withinBoundaries_ps == false || withinBoundaries_pe == false)
 		return false;
 	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
-	if (is3D)
+	if (is3D && taking_off == false)
 	{
 		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
 			return false;
@@ -245,7 +245,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 						return false;
 				}
 				else if (sqrt(pow(pe.N - cylinderPoint.N, 2) + pow(pe.E - cylinderPoint.E, 2)) < map.cylinders[i].R + r)
-				{// if the ending point is within the 2d cylinder 
+				{// if the ending point is within the 2d cylinder
 					if (-pe.D < map.cylinders[i].H + r)
 						return false;
 					// else check to see if the line that intersects the cylinder is in or out
@@ -338,7 +338,7 @@ bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point st
 	if (withinBoundaries == false)
 		return false;
 	// Check to see if the point is within the right fly altitudes
-	if (is3D)
+	if (is3D && taking_off == false)
 		if (-NED.D < minFlyHeight + radius || -NED.D > maxFlyHeight - radius)
 			return false;
 
@@ -396,7 +396,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 				if (line_intersects_arc(Ni, Ei, cp, ps, pe, ccw))
 				{
 					if (sqrt(pow(Ni - cp.N, 2) + pow(Ei - cp.E, 2)) - aradius < r)
-					{ 
+					{
 						return false;
 					}
 				}
@@ -408,7 +408,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
 					{
 						if (sqrt(pow(Ni - ps.N, 2) + pow(Ei - ps.E, 2)) < r)
-						{ 
+						{
 							return false;
 						}
 					}
@@ -422,12 +422,12 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 					Ni = line_Mandb[i][2] * Ei + bt;
 					if (Ni > lineMinMax[i][0] && Ni < lineMinMax[i][1] && Ei > lineMinMax[i][2] && Ei < lineMinMax[i][3])
 					{
-						if (sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2)) < r) 
+						if (sqrt(pow(Ni - pe.N, 2) + pow(Ei - pe.E, 2)) < r)
 						{
 							return false;
 						}
 					}
-					else if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) < r) 
+					else if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) < r)
 					{
 						return false;
 					}
@@ -438,8 +438,8 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 			{
 				if (line_intersects_arc(map.boundary_pts[i].N, map.boundary_pts[i].E, cp, ps, pe, ccw))
 				{
-					if (sqrt(pow(map.boundary_pts[i].N - cp.N, 2) + pow(map.boundary_pts[i].E - cp.E, 2)) - aradius < r) 
-					{ 
+					if (sqrt(pow(map.boundary_pts[i].N - cp.N, 2) + pow(map.boundary_pts[i].E - cp.E, 2)) - aradius < r)
+					{
 						return false;
 					}
 				}
@@ -447,13 +447,13 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 				//{
 				//	if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - cp.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - cp.E, 2)) - aradius < r) { return false; }
 				//}
-				if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) - aradius < r) 
+				if (sqrt(pow(map.boundary_pts[i].N - ps.N, 2) + pow(map.boundary_pts[i].E - ps.E, 2)) - aradius < r)
 				{
 					return false;
 				}
-				if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) - aradius < r) 
+				if (sqrt(pow(map.boundary_pts[i].N - pe.N, 2) + pow(map.boundary_pts[i].E - pe.E, 2)) - aradius < r)
 				{
-					return false; 
+					return false;
 				}
 				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - ps.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - ps.E, 2)) - aradius < r) { return false; }
 				//if (sqrt(pow(map.boundary_pts[(i + 1) % nBPts].N - pe.N, 2) + pow(map.boundary_pts[(i + 1) % nBPts].E - pe.E, 2)) - aradius < r) { return false; }
@@ -469,7 +469,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
-	if (is3D)
+	if (is3D && taking_off == false)
 	{
 		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
 			return false;
@@ -490,18 +490,18 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 			clearThisCylinder = true;
 		else if (line_intersects_arc(map.cylinders[i].N, map.cylinders[i].E, cp, ps, pe, ccw))
 		{
-			if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) - aradius - map.cylinders[i].R < r) 
+			if (sqrt(pow(map.cylinders[i].N - cp.N, 2) + pow(map.cylinders[i].E - cp.E, 2)) - aradius - map.cylinders[i].R < r)
 			{
 				clearThisCylinder = false;
 			}
 		}
 		else
 		{
-			if (sqrt(pow(map.cylinders[i].N - ps.N, 2) + pow(map.cylinders[i].E - ps.E, 2)) - map.cylinders[i].R < r) 
-			{ 
+			if (sqrt(pow(map.cylinders[i].N - ps.N, 2) + pow(map.cylinders[i].E - ps.E, 2)) - map.cylinders[i].R < r)
+			{
 				clearThisCylinder = false;
 			}
-			else if (sqrt(pow(map.cylinders[i].N - pe.N, 2) + pow(map.cylinders[i].E - pe.E, 2)) - map.cylinders[i].R < r) 
+			else if (sqrt(pow(map.cylinders[i].N - pe.N, 2) + pow(map.cylinders[i].E - pe.E, 2)) - map.cylinders[i].R < r)
 			{
 				clearThisCylinder = false;
 			}

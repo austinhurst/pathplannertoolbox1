@@ -1,4 +1,4 @@
-function [] = plot_sim_3d( )
+function [] = plot_sim_3d(varargin)
     path_type = 1;                          % Type 1 = fillet paths
     pWPS = load("output_primary_wps.txt");
     allWPS = load("output_path.txt");
@@ -53,6 +53,13 @@ function [] = plot_sim_3d( )
             total_path_distance = total_path_distance + sqrt((allWPS(i,1) - allWPS(i-1,1))^2 + (allWPS(i,2) - allWPS(i-1,2))^2 + (allWPS(i,3) - allWPS(i-1,3))^2);
         end
 %         disp([total_path_distance]);
+    end
+    figure (1)
+    hold on
+    all_wps = load('output_path.txt');
+    scatter3(all_wps(:,2),all_wps(:,1),-all_wps(:,3),200,'x','LineWidth',2,'MarkerFaceColor','c','MarkerEdgeColor','c')
+    if nargin > 0
+        plot3(varargin{1}(:,3), varargin{1}(:,2), -varargin{1}(:,4),'g','LineWidth',5);
     end
     hold off
     

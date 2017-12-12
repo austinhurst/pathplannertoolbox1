@@ -33,6 +33,10 @@ public:
 	unsigned int iters_limit;
 
 	// Map Settings
+	double N0;
+	double E0;
+	double D0;
+	double chi0;
 	string boundaries_in_file;
 	string latitude0;
 	string longitude0;

@@ -2,43 +2,47 @@
 # These are default values, typically you will want to change a few values for each trial run.
 # You can change those values inside the main().
 # The order of variables does not matter.
-# A '#' is a comment and is ignorded.
-# Please keep this filee somewhat pretty
+# A '#' is a comment and is ignored.
+# Please keep this file somewhat pretty
 
 
 # Simulation Settings
 ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
-numWps  = 10;			# Number of primary waypoints
-seed	= 2944541;		# Seed the random generators for all of the simulation seeds
+numWps  = 5;			# Number of primary waypoints
+seed	= 2680025;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
-turn_radius = 20;		# Turn radius of the plane to plan for in the path.
-climb_angle = 20;		# Angle in degrees the plane will typically ascend
-descend_angle = 15;		# Angle in degrees the plane will typically descend
-max_climb_angle = 23;		# Maximum angle the plane will ascend, must be greater than climb_angle
-max_descend_angle = 18;		# Maximum angle the plane will descend, must be greater than descend_angle
+turn_radius = 25;		# Turn radius of the plane to plan for in the path.
+climb_angle = 10;		# Angle in degrees the plane will typically ascend
+descend_angle = 8;		# Angle in degrees the plane will typically descend
+max_climb_angle = 15;		# Maximum angle the plane will ascend, must be greater than climb_angle
+max_descend_angle = 12;		# Maximum angle the plane will descend, must be greater than descend_angle
 
 
 # General Path Planning Algorithm Settings
-clearance   = 20;		# Minimum distance the algorithm has to stay away from any obstacle
+clearance   = 30;		# Minimum distance the algorithm has to stay away from any obstacle
 iters_limit = 5000;		# This is a maximum iteration limit - so impossible maps don't hang the program
 
 # Map Settings
+N0 = 0;                   # initial starting place for the plane, North in NED
+E0 = 0;                   # initial starting place for the plane, East in NED
+D0 = 0;                   # initial starting place for the plane, Down in NED
+chi0 = 0;                 # initial starting heading for the plane, degrees clockwise from N
 boundaries_in_file = ./input_files/competition_boundaries.txt;
-latitude0    = N38-09-01.50;	# 0 point for the latitude. Please follow format Nxx-xx-xx.xx
-longitude0   = W076-25-29.70;	# 0 point for the longitude. Please follow format Wxxx-xx-xx.xx
+latitude0    = N38-08-35.75;	# 0 point for the latitude. Please follow format Nxx-xx-xx.xx
+longitude0   = W076-25-50.70;	# 0 point for the longitude. Please follow format Wxxx-xx-xx.xx
 height0	     = 6.7056;		# 0 height at the runway, 22 feet.
-is3D 	     = true;		# false = 2 dimensions, true = 3 dimensions
+is3D 	     = true;	      # false = 2 dimensions, true = 3 dimensions
 minCylRadius = 9.144; 		# 9.144 m = 30 ft.
 maxCylRadius = 91.44; 		# 91.44 m = 300 ft.
 minCylHeight = 9.144; 		# 9.144 m = 30 ft.
 maxCylHeight = 228.6; 		# 228.6 m = 750 ft.
 minFlyHeight = 30.48; 		# 23.7744 m = 100 - 22 ft. (positive value)
 maxFlyHeight = 228.6; 		# 221.8944 m = 750 - 22 ft. (positive value)
-waypoint_clearance = 25;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
-nCyli        = 70;		# Number of Cylindrical Obstacles
+waypoint_clearance = 35;	# Minimum Distance a waypoint will be placed away from an obstacle (to make it possible)
+nCyli        = 10;		    # Number of Cylindrical Obstacles
 
 # Output Files
 file_extension        = .txt;	# This is the file extension that will go on all of the files
@@ -47,5 +51,5 @@ boundaries_out_file   = ./graphing_files/output_boundaries;
 cylinders_out_file    = ./graphing_files/output_cylinders;
 primary_wps_out_file  = ./graphing_files/output_primary_wps;
 tree_file = ./graphing_files/output_tree_;
-path_file = ./graphing_files/output_path;
+path_file = ./graphing_files/output_path;									# ~/.ros/output_path  ... ./graphing_files/output_path
 special_pfile = ./graphing_files/output_special_path_params;
