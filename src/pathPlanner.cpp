@@ -189,7 +189,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double r) /
 	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
-	if (is3D)
+	if (is3D && taking_off == false)
 	{
 		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
 			return false;
@@ -338,7 +338,7 @@ bool pathPlanner::flyZoneCheck(const NED_s NED, const double radius) // Point st
 	if (withinBoundaries == false)
 		return false;
 	// Check to see if the point is within the right fly altitudes
-	if (is3D)
+	if (is3D && taking_off == false)
 		if (-NED.D < minFlyHeight + radius || -NED.D > maxFlyHeight - radius)
 			return false;
 
@@ -469,7 +469,7 @@ bool pathPlanner::flyZoneCheck(const NED_s ps, const NED_s pe, const double arad
 	// ^^^^^^^^^^^^^^^^ Finish up checking if the end points were both inside the boundary (ray casting) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// vvvvvvvvvvvvvvvvvvvvv Check to see if the point is within the right fly altitudes vvvvvvvvvvvvvvvvvvvvvv
-	if (is3D)
+	if (is3D && taking_off == false)
 	{
 		if (-ps.D < minFlyHeight + r || -ps.D > maxFlyHeight - r)
 			return false;
