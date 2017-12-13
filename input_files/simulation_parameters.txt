@@ -11,13 +11,13 @@ ntrials = 1;			# Number of trials to run
 nMCs    = 1;			# Number of Monte Carlos for each trail
 solver_type = 1;		# Which type of solver (1=simpleRRT,2=...)
 numWps  = 5;			# Number of primary waypoints
-seed	= 123456;		# Seed the random generators for all of the simulation seeds
+seed	= 32456;		# Seed the random generators for all of the simulation seeds
 
 # Plane Settings
 turn_radius = 25;		# Turn radius of the plane to plan for in the path.
 climb_angle = 10;		# Angle in degrees the plane will typically ascend
 descend_angle = 8;		# Angle in degrees the plane will typically descend
-max_climb_angle = 15;		# Maximum angle the plane will ascend, must be greater than climb_angle
+max_climb_angle = 12;		# Maximum angle the plane will ascend, must be greater than climb_angle
 max_descend_angle = 12;		# Maximum angle the plane will descend, must be greater than descend_angle
 
 

@@ -552,8 +552,6 @@ void simpleRRT::develop_tree(unsigned int i, bool reached_next_wp, node* second2
 	// We can go to the next waypoint!
 	// The following code wraps up the algorithm.
 	clearance = input_file->clearance;									// Bump up the clearance level again.
-	if (taking_off == true)
-		taking_off = false;
 	node *final_node = new node;
 	final_node->NED = map.wps[i];
 	final_node->line_start = line_start;
@@ -695,6 +693,8 @@ void simpleRRT::smoother(bool skip_smoother, unsigned int i, double* distance_in
 	}
 	else
 		all_wps[i].erase(all_wps[i].begin() + all_wps[i].size() - 1);
+	if (taking_off == true)
+		taking_off = false;
 }
 bool simpleRRT::check_slope(NED_s beg, NED_s en)
 {
