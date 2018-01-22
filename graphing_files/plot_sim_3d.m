@@ -56,10 +56,11 @@ function [] = plot_sim_3d(varargin)
     end
     figure (1)
     hold on
-    all_wps = load('output_path.txt');
-    scatter3(all_wps(:,2),all_wps(:,1),-all_wps(:,3),200,'x','LineWidth',2,'MarkerFaceColor','c','MarkerEdgeColor','c')
+%     all_wps = load('output_path.txt');
+%     scatter3(all_wps(:,2),all_wps(:,1),-all_wps(:,3),200,'x','LineWidth',2,'MarkerFaceColor','c','MarkerEdgeColor','c')
+    clip = 93000;
     if nargin > 0
-        plot3(varargin{1}(:,3), varargin{1}(:,2), -varargin{1}(:,4),'g','LineWidth',5);
+        plot3(varargin{1}(1:end -clip ,3), varargin{1}(1:end -clip ,2), -varargin{1}(1:end -clip ,4),'g','LineWidth',5);
     end
     hold off
     
